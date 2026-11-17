@@ -63,7 +63,7 @@ staff.get('/cases/:id', wrap(async (req, res) => {
   }
   const customer = await User.findById(b.userId).lean();
   const view = await bookingView(b, req.user);
-  view.customer = { name: customer?.name, email: customer?.email, mobile: customer?.mobile };
+  view.customer = { name: customer?.name, email: customer?.email, mobile: customer?.mobile, avatarUrl: customer?.avatar ? `/api/avatars/${customer._id}?v=${customer.avatarVersion || 0}` : null };
   view.age = ageOf(b.form?.dob);
   res.json({ case: view, checkItems: CHECK_ITEMS, checkValues: CHECK_VALUES });
 }));

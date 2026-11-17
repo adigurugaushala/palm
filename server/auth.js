@@ -28,7 +28,7 @@ const requireUser = (...roles) => (req, res, next) => {
   next();
 };
 
-const publicUser = u => u && ({ id: String(u._id || u.id), role: u.role, name: u.name, email: u.email, mobile: u.mobile });
+const publicUser = u => u && ({ id: String(u._id || u.id), role: u.role, name: u.name, email: u.email, mobile: u.mobile, avatarUrl: u.avatar ? `/api/avatars/${u._id || u.id}?v=${u.avatarVersion || 0}` : null });
 const EMAIL = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 const router = express.Router();

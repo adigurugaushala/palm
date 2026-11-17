@@ -2,7 +2,66 @@
 import { useState } from 'react';
 import { CustomerShell } from '@/components/Shells';
 import { useApp, useAction } from '@/components/Providers';
-import { api } from '@/lib/api';
+import { api, uploadWithProgress } from '@/lib/api';
+import Avatar from '@/components/Avatar';
+import Icon from '@/components/Icon';
+
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const PHOTO_MAX = 2 * 1024 * 1024;
+
+function PhotoCard() {
+  const { me, setMe } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState(0);
+  const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
+  const pick = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setErr(''); setMsg('');
+    if (!PHOTO_TYPES.includes(file.type)) return setErr('Use a JPG, PNG or WebP photo.');
+    if (file.size > PHOTO_MAX) return setErr('The photo must be 2 MB or smaller.');
+    const fd = new FormData();
+    fd.append('photo', file);
+    setBusy(true); setPct(0);
+    try {
+      const r = await uploadWithProgress('/me/avatar', fd, setPct);
+      setMe({ ...me, avatarUrl: r.avatarUrl });
+      setMsg('Profile photo updated.');
+    } catch (ex) { setErr(ex.message); }
+    setBusy(false);
+  };
+  const remove = async () => {
+    setErr(''); setMsg('');
+    try {
+      const r = await api('DELETE', '/me/avatar');
+      setMe({ ...me, avatarUrl: r.avatarUrl });
+      setMsg('Profile photo removed.');
+    } catch (ex) { setErr(ex.message); }
+  };
+  return (
+    <section className="card" style={{ marginBottom: 18 }}>
+      <div className="card-title"><h3>Profile photo</h3></div>
+      <div className="row wrap" style={{ alignItems: 'center', gap: 18 }}>
+        <Avatar src={me.avatarUrl} name={me.name} size={88} />
+        <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
+          <p className="muted small" style={{ margin: 0 }}>JPG, PNG or WebP, up to 2 MB. Location and device details are removed when the photo is saved.</p>
+          <div className="row wrap" style={{ gap: 10 }}>
+            <label className="btn outline sm" style={{ position: 'relative', cursor: busy ? 'progress' : 'pointer' }}>
+              <Icon name="camera" />{busy ? `Uploading ${pct}%` : me.avatarUrl ? 'Change photo' : 'Upload photo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pick} disabled={busy} aria-label="Choose a profile photo"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'inherit' }} />
+            </label>
+            {me.avatarUrl && <button type="button" className="btn ghost sm" onClick={remove} disabled={busy}>Remove photo</button>}
+          </div>
+          {err && <p className="notice bad" role="alert" style={{ margin: 0 }}>{err}</p>}
+          {msg && <p className="small" role="status" style={{ margin: 0 }}>{msg}</p>}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function Profile() {
   const { me, setMe, t, lang, setLang } = useApp();
@@ -32,6 +91,7 @@ function Profile() {
   return (
     <>
       <div className="page-head"><div><span className="eyebrow on-ivory">Your account</span><h1>{t('profile')}</h1></div></div>
+      <PhotoCard />
       <div className="layout-2">
         <form className="card" onSubmit={save}>
           <div className="card-title"><h3>Personal details</h3></div>

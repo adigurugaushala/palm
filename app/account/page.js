@@ -5,6 +5,7 @@ import { CustomerShell } from '@/components/Shells';
 import { useApp, Loader } from '@/components/Providers';
 import BookingRow from '@/components/BookingRow';
 import Icon from '@/components/Icon';
+import Avatar from '@/components/Avatar';
 import { api } from '@/lib/api';
 import { fmtDayLong, firstName } from '@/lib/format';
 
@@ -31,7 +32,10 @@ function Dashboard() {
   return (
     <>
       <div className="page-head greet">
-        <div><span className="eyebrow on-ivory">{today}</span><h1>{t('namaste')}, <em>{firstName(me.name) || 'friend'}</em></h1></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+          <Avatar src={me.avatarUrl} name={me.name} size={56} />
+          <div><span className="eyebrow on-ivory">{today}</span><h1>{t('namaste')}, <em>{firstName(me.name) || 'friend'}</em></h1></div>
+        </div>
         <Link href="/book" className="btn"><Icon name="plus" />{t('book')}</Link>
       </div>
 

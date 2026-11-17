@@ -126,6 +126,15 @@ The current public integration is fine for development and small traffic but has
 
 The API is `GET /api/admin/reports?from=&to=` and `GET /api/admin/reports.csv?from=&to=&section=`, both admin-only.
 
+## Profile photos
+
+Customers upload a photo from **Profile**. It appears in the account greeting and, for staff, in the case header.
+
+- Accepted: JPG, PNG or WebP, up to 2 MB, each side between 128 and 6000 pixels. The file type is read from the image header, not from the browser's file name.
+- Metadata (EXIF location and device data, XMP, text chunks) is removed before the file is saved. The picture data and colour profile are kept. This works for JPEG, PNG and WebP; a file whose structure can't be read is rejected.
+- Files are stored under `data/uploads/avatars` with server-generated names, outside the public folder. Each upload replaces the previous file.
+- `GET /api/avatars/:userId` serves a photo only to the customer, to admins, and to staff for a customer who has a booking.
+
 ## Booking calendar
 
 The booking page shows a month view (`MonthCalendar`) built from `/api/slots`. Dates are marked available, fully booked or not open, and the "next available date" button jumps to the first open day. The window defaults to 30 days for new installs (`daysAhead` in `server/db.js`); existing installs keep the value already stored in their settings.

@@ -17,6 +17,10 @@ const UserSchema = new Schema({
   googleSub: { type: String, sparse: true, unique: true },
   passwordHash: { type: String, default: null },
   active: { type: Boolean, default: true, index: true },
+  // Profile photo: a server-generated filename under data/uploads/avatars, its type, and a version used to bust caches.
+  avatar: { type: String, default: '' },
+  avatarMime: { type: String, default: '' },
+  avatarVersion: { type: Number, default: 0 },
 }, { timestamps: true });
 
 const BookingSchema = new Schema({

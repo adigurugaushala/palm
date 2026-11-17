@@ -7,6 +7,7 @@ import { useApp, useAction, Loader } from '@/components/Providers';
 import { Chat, Lightbox, MeetPanel, Modal } from '@/components/Portal';
 import { caseTone } from '@/components/CaseTable';
 import Icon from '@/components/Icon';
+import Avatar from '@/components/Avatar';
 import { api } from '@/lib/api';
 import { fmtDayLong, fmtStamp } from '@/lib/format';
 
@@ -76,7 +77,10 @@ function Workspace() {
       <div className="case-head">
         <div>
           <span className="eyebrow on-ivory">Case {c.id}</span>
-          <h1>{c.customer?.name || f.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <Avatar src={c.customer?.avatarUrl} name={c.customer?.name || f.name} size={56} />
+            <h1>{c.customer?.name || f.name}</h1>
+          </div>
           <p className="small" style={{ marginTop: 4 }}>{fmtDayLong(c.date)} · {c.slot}{c.reviewer ? ` · ${c.reviewer}` : ''}</p>
         </div>
         <span className={`badge ${caseTone({ ...c, flag: c.flag ? `${c.flag.type}:` : '' })}`}>{c.statusLabel}</span>
