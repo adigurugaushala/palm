@@ -115,6 +115,17 @@ The current public integration is fine for development and small traffic but has
 - **Course content:** each course can have lessons (a title, an https video or reading link and notes) and live classes (a start time, a length and an https join link). Content is shown only on the learner's course page at `/learning/[id]`, after payment. A join link opens from 15 minutes before a class until it has run for its length. Links are validated on the server.
 - **Progress and certificates:** staff set a paid course to Completed from Admin → Learning & services → Orders. Completing issues a certificate number (`GJC-` plus the last eight characters of the order id), and the learner downloads a certificate PDF from their course page. Setting it back to Learning keeps the same number.
 
+## Reports (admin)
+
+`/admin/reports` shows, for any period up to one year (IST dates, last 30 days by default):
+
+- **Revenue by product**: consultations, each course and each service, with payment counts.
+- **Donations by purpose**, and **booking-to-paid**: consultations started in the period and how many were paid.
+- **Turnaround by Guruji**: average hours from payment to the report being sent.
+- **CSV export** for products, donations, turnaround and conversion. Values that spreadsheets would read as formulas are neutralised before export.
+
+The API is `GET /api/admin/reports?from=&to=` and `GET /api/admin/reports.csv?from=&to=&section=`, both admin-only.
+
 ## Booking calendar
 
 The booking page shows a month view (`MonthCalendar`) built from `/api/slots`. Dates are marked available, fully booked or not open, and the "next available date" button jumps to the first open day. The window defaults to 30 days for new installs (`daysAhead` in `server/db.js`); existing installs keep the value already stored in their settings.

@@ -120,6 +120,30 @@ app.get('/api/learning/:id', (req, res) => {
     ],
   } });
 });
+app.get('/api/admin/reports', (req, res) => res.json({
+  range: { from: req.query.from || '2026-10-20', to: req.query.to || '2026-11-18' },
+  totals: { revenue: 184600, consultations: 128400, courses: 34997, services: 12600, donations: 8603 },
+  products: [
+    { product: 'Consultation', kind: 'Consultation', count: 168, revenue: 128400 },
+    { product: 'Foundations of Palmistry', kind: 'Course', count: 7, revenue: 34993 },
+    { product: 'Detailed Palm Reading', kind: 'Service', count: 8, revenue: 11992 },
+    { product: 'Muhurtham Guidance', kind: 'Service', count: 3, revenue: 6300 },
+  ],
+  donations: [
+    { purpose: 'Annadanam (community meals)', count: 9, amount: 4602 },
+    { purpose: 'General donation', count: 5, amount: 2501 },
+    { purpose: 'Education and scholarships', count: 2, amount: 1500 },
+  ],
+  conversion: { started: 212, paid: 168, rate: 79.2 },
+  turnaround: {
+    reports: 150, averageHours: 31.4,
+    byGuruji: [
+      { guruji: 'Guruji (Senior)', reports: 96, averageHours: 26.8 },
+      { guruji: 'S. Murthy', reports: 54, averageHours: 39.2 },
+    ],
+  },
+}));
+app.get('/api/admin/reports.csv', (req, res) => res.type('text/csv').send('Product,Type\r\n'));
 app.get('/api/admin/catalog', (req, res) => res.json({ products: PRODUCTS.map(p => ({ ...p })).concat([{ ...PRODUCTS[0], slug: 'palm-draft', title: 'Draft: Hand Shapes', active: false, price: 999 }]) }));
 app.get('/api/admin/orders', (req, res) => {
   const kind = req.query.kind;

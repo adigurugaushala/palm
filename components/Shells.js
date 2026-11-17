@@ -101,7 +101,7 @@ export const GURUJI_NAV = me => [
 ];
 
 export const ADMIN_NAV = [
-  { title: 'Overview', items: [['/admin', 'chart', 'Dashboard']] },
+  { title: 'Overview', items: [['/admin', 'chart', 'Dashboard'], ['/admin/reports', 'chart', 'Reports']] },
   { title: 'Operations', items: [['/admin/orders', 'list', 'Bookings'], ['/admin/customers', 'users', 'Customers'], ['/admin/payments', 'card', 'Payments'], ['/admin/commerce', 'list', 'Learning & services'], ['/guruji', 'palm', 'Guruji workspace']] },
   { title: 'Management', items: [['/admin/team', 'user', 'Guruji team'], ['/admin/reviews', 'quote', 'Reviews'], ['/admin/settings', 'settings', 'Booking settings'], ['/admin/audit', 'audit', 'Audit log']] },
 ];
