@@ -112,6 +112,8 @@ The current public integration is fine for development and small traffic but has
 - **Orders** (`/orders/[id]/pay`, `/paid`, `/failed`) hold a receipt-style status for every commerce purchase. Shared PayU routing lives in `server/routes/commerce.js`, with `server/routes/payu.js` dispatching order callbacks to it.
 - **Admin** (`/admin/commerce`): add, edit, publish or unpublish courses and services; see donation, course and service totals; and mark paid service requests as received, contacted or completed.
 - Sample products are seeded as unpublished drafts. Publish them from admin before they appear on the site.
+- **Course content:** each course can have lessons (a title, an https video or reading link and notes) and live classes (a start time, a length and an https join link). Content is shown only on the learner's course page at `/learning/[id]`, after payment. A join link opens from 15 minutes before a class until it has run for its length. Links are validated on the server.
+- **Progress and certificates:** staff set a paid course to Completed from Admin → Learning & services → Orders. Completing issues a certificate number (`GJC-` plus the last eight characters of the order id), and the learner downloads a certificate PDF from their course page. Setting it back to Learning keeps the same number.
 
 ## Booking calendar
 

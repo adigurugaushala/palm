@@ -6,6 +6,8 @@ const { requireUser } = require('../auth');
 const { HttpError, wrap, token } = require('../util');
 const cfg = require('../config');
 const payu = require('../payu');
+const { parseLessons, parseSessions } = require('../courses');
+const { renderCertificate } = require('../report');
 
 const router = express.Router();
 const admin = express.Router();
@@ -132,6 +134,31 @@ router.get('/orders/:id', requireUser('customer'), wrap(async (req, res) => {
   res.json({ order: orderView(o) });
 }));
 
+// ---------------- learning: lessons, live classes and certificates for paid learners ----------------
+async function ownedCourse(req) {
+  const o = await Order.findOne({ orderId: req.params.id, userId: req.user._id, kind: 'course', status: 'paid' }).lean();
+  if (!o) throw new HttpError(404, 'Course not found');
+  const p = await Product.findOne({ slug: o.productSlug }).lean();
+  return { o, p };
+}
+
+router.get('/learning/:id', requireUser('customer'), wrap(async (req, res) => {
+  const { o, p } = await ownedCourse(req);
+  res.json({ course: {
+    id: o.orderId, title: o.title, durationText: p?.durationText || '', paidAt: o.paidAt,
+    courseStatus: o.courseStatus || 'active', completedAt: o.completedAt || null, certificateNo: o.certificateNo || '',
+    lessons: (p?.lessons || []).map(l => ({ title: l.title, url: l.url, notes: l.notes })),
+    sessions: (p?.sessions || []).map(x => ({ title: x.title, startsAt: x.startsAt, durationMin: x.durationMin, joinUrl: x.joinUrl })),
+  } });
+}));
+
+router.get('/learning/:id/certificate.pdf', requireUser('customer'), wrap(async (req, res) => {
+  const { o } = await ownedCourse(req);
+  if (o.courseStatus !== 'completed' || !o.certificateNo) throw new HttpError(404, 'Certificate not issued yet');
+  res.type('application/pdf').set('Content-Disposition', `attachment; filename="guruji-certificate-${o.certificateNo}.pdf"`);
+  renderCertificate({ name: req.user.name || 'Learner', course: o.title, date: o.completedAt, certNo: o.certificateNo }, res);
+}));
+
 // ---------------- settling payments (called by routes/payu.js) ----------------
 async function markOrderPaid(o, body) {
   if (o.status === 'paid') return;
@@ -172,7 +199,11 @@ const isOrderCallback = body => String(body.udf1 || '').startsWith('ORD-');
 // ---------------- admin: catalogue and orders ----------------
 admin.get('/catalog', wrap(async (req, res) => {
   const rows = await Product.find({}).sort({ kind: 1, sort: 1, title: 1 }).lean();
-  res.json({ products: rows.map(p => ({ ...publicProduct(p), active: !!p.active })) });
+  res.json({ products: rows.map(p => ({
+    ...publicProduct(p), active: !!p.active,
+    lessons: p.lessons || [],
+    sessions: (p.sessions || []).map(x => ({ title: x.title, startsAt: x.startsAt ? new Date(x.startsAt).toISOString() : '', durationMin: x.durationMin, joinUrl: x.joinUrl })),
+  })) });
 }));
 
 const parseOutcomes = v => (Array.isArray(v) ? v : String(v || '').split('\n')).map(x => String(x).trim()).filter(Boolean).slice(0, 12);
@@ -192,6 +223,8 @@ admin.post('/catalog', wrap(async (req, res) => {
     slug, kind: b.kind, title: title.slice(0, 120), summary: String(b.summary || '').slice(0, 240),
     description: String(b.description || '').slice(0, 4000), price, durationText: String(b.durationText || '').slice(0, 120),
     outcomes: parseOutcomes(b.outcomes), active: !!b.active,
+    lessons: b.kind === 'course' ? parseLessons(b.lessons) : [],
+    sessions: b.kind === 'course' ? parseSessions(b.sessions) : [],
   });
   await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'catalog.add', target: p.slug, meta: { kind: p.kind, price } });
   res.status(201).json({ ok: true, slug: p.slug });
@@ -213,6 +246,10 @@ admin.put('/catalog/:slug', wrap(async (req, res) => {
     p.price = price; changed.price = price;
   }
   if (b.active != null) { p.active = !!b.active; changed.active = p.active; }
+  if (p.kind === 'course') {
+    if (b.lessons != null) { p.lessons = parseLessons(b.lessons); changed.lessons = p.lessons.length; }
+    if (b.sessions != null) { p.sessions = parseSessions(b.sessions); changed.sessions = p.sessions.length; }
+  }
   await p.save();
   await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'catalog.update', target: p.slug, meta: changed });
   res.json({ ok: true });
@@ -222,6 +259,7 @@ admin.get('/orders', wrap(async (req, res) => {
   const q = {};
   if (['course', 'service', 'donation'].includes(req.query.kind)) q.kind = req.query.kind;
   if (req.query.status === 'paid') q.status = 'paid';
+  if (req.query.product) q.productSlug = String(req.query.product).slice(0, 60);
   const rows = await Order.find(q).sort({ createdAt: -1 }).limit(300).lean();
   const users = Object.fromEntries((await User.find({ _id: { $in: rows.map(r => r.userId) } }, { name: 1, email: 1, mobile: 1 }).lean()).map(u => [String(u._id), u]));
   const paid = rows.filter(r => r.status === 'paid');
@@ -238,6 +276,7 @@ admin.get('/orders', wrap(async (req, res) => {
         ...orderView(o), txnid: o.txnid, mihpayid: o.mihpayid,
         customer: o.anonymous ? 'Anonymous donor' : (u.name || ''), email: u.email || '', mobile: u.mobile || '',
         form: o.kind === 'service' ? o.form : (o.kind === 'donation' ? { donorName: o.form?.donorName || '' } : {}),
+        courseStatus: o.courseStatus || 'active', certificateNo: o.certificateNo || '',
       };
     }),
   });
@@ -251,6 +290,25 @@ admin.put('/orders/:id', wrap(async (req, res) => {
   await o.save();
   await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'order.fulfilment', target: o.orderId, meta: { fulfilment: o.fulfilment } });
   res.json({ ok: true });
+}));
+
+// Guruji marks a paid course as completed. Completing issues a certificate number; the learner can
+// then download the certificate. Setting it back to active keeps the number so nothing is reissued.
+admin.put('/orders/:id/course', wrap(async (req, res) => {
+  const o = await Order.findOne({ orderId: req.params.id, kind: 'course', status: 'paid' });
+  if (!o) throw new HttpError(404, 'Paid course order not found');
+  const status = req.body?.courseStatus;
+  if (!['active', 'completed'].includes(status)) throw new HttpError(400, 'Unknown course status');
+  o.courseStatus = status;
+  if (status === 'completed') {
+    if (!o.completedAt) o.completedAt = new Date();
+    o.certificateNo = o.certificateNo || `GJC-${o.orderId.slice(-8)}`;
+  } else {
+    o.completedAt = null;
+  }
+  await o.save();
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'course.status', target: o.orderId, meta: { courseStatus: status } });
+  res.json({ ok: true, certificateNo: o.certificateNo });
 }));
 
 module.exports = {

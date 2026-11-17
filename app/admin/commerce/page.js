@@ -11,6 +11,17 @@ import { STATUS_LABEL } from '@/components/Commerce';
 
 const KINDS = { course: 'Course', service: 'Service', donation: 'Donation' };
 const FULFIL = { new: 'New', contacted: 'Contacted', done: 'Completed' };
+const COURSE_STATUS = { active: 'Learning', completed: 'Completed' };
+
+// ISO time to the value a datetime-local input expects (browser's local time).
+const toLocalInput = iso => {
+  const d = iso ? new Date(iso) : null;
+  if (!d || isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+const blankLesson = () => ({ title: '', url: '', notes: '' });
+const blankSession = () => ({ title: '', startsAt: '', durationMin: 60, joinUrl: '' });
 
 function ProductForm({ initial, onClose, onSaved }) {
   const run = useAction();
@@ -20,12 +31,22 @@ function ProductForm({ initial, onClose, onSaved }) {
     description: initial?.description || '', price: initial?.price ?? '', durationText: initial?.durationText || '',
     outcomes: (initial?.outcomes || []).join('\n'), active: initial ? !!initial.active : false,
   });
+  const [lessons, setLessons] = useState(() => (initial?.lessons || []).map(l => ({ title: l.title || '', url: l.url || '', notes: l.notes || '' })));
+  const [sessions, setSessions] = useState(() => (initial?.sessions || []).map(x => ({ title: x.title || '', startsAt: toLocalInput(x.startsAt), durationMin: x.durationMin || 60, joinUrl: x.joinUrl || '' })));
   const [busy, setBusy] = useState(false);
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const editRow = (list, setList, i, patch) => setList(list.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const save = async e => {
     e.preventDefault();
     setBusy(true);
     const body = { ...f, price: Number(f.price) };
+    if (f.kind === 'course') {
+      body.lessons = lessons.filter(l => l.title.trim() || l.url.trim() || l.notes.trim());
+      body.sessions = sessions.filter(x => x.title.trim() || x.startsAt).map(x => {
+        const d = new Date(x.startsAt);
+        return { ...x, durationMin: Number(x.durationMin) || 60, startsAt: x.startsAt && !isNaN(d) ? d.toISOString() : '' };
+      });
+    }
     const r = await run(() => (isNew ? api('POST', '/admin/catalog', body) : api('PUT', `/admin/catalog/${initial.slug}`, body)), isNew ? 'Added' : 'Saved');
     setBusy(false);
     if (r) { onSaved(); onClose(); }
@@ -48,6 +69,36 @@ function ProductForm({ initial, onClose, onSaved }) {
           <div className="field"><label htmlFor="pdur">Duration or format</label><input id="pdur" className="input" value={f.durationText} onChange={set('durationText')} maxLength={120} placeholder="e.g. 6 weeks, online" /></div>
         </div>
         <div className="field"><label htmlFor="po">What is included or learned (one per line)</label><textarea id="po" className="input" rows={4} value={f.outcomes} onChange={set('outcomes')} /></div>
+        {f.kind === 'course' && (
+          <>
+            <fieldset className="course-content">
+              <legend>Lessons</legend>
+              <p className="sub" style={{ margin: '0 0 10px' }}>Learners see these after they enrol. Links must start with https://</p>
+              {lessons.map((l, i) => (
+                <div className="edit-row lessons" key={i}>
+                  <div className="field"><label htmlFor={`lt${i}`}>Lesson title</label><input id={`lt${i}`} className="input" value={l.title} maxLength={120} onChange={e => editRow(lessons, setLessons, i, { title: e.target.value })} /></div>
+                  <div className="field"><label htmlFor={`lu${i}`}>Video or reading link</label><input id={`lu${i}`} className="input" type="url" value={l.url} maxLength={500} placeholder="https://" onChange={e => editRow(lessons, setLessons, i, { url: e.target.value })} /></div>
+                  <button type="button" className="btn ghost sm" onClick={() => setLessons(lessons.filter((_, j) => j !== i))} aria-label={`Remove lesson ${i + 1}`}>Remove</button>
+                  <div className="field wide"><label htmlFor={`ln${i}`}>Notes for the learner</label><input id={`ln${i}`} className="input" value={l.notes} maxLength={1000} onChange={e => editRow(lessons, setLessons, i, { notes: e.target.value })} /></div>
+                </div>
+              ))}
+              <button type="button" className="btn outline sm" onClick={() => setLessons([...lessons, blankLesson()])}><Icon name="plus" />Add a lesson</button>
+            </fieldset>
+            <fieldset className="course-content">
+              <legend>Live classes</legend>
+              {sessions.map((x, i) => (
+                <div className="edit-row sessions" key={i}>
+                  <div className="field"><label htmlFor={`st${i}`}>Class title</label><input id={`st${i}`} className="input" value={x.title} maxLength={120} onChange={e => editRow(sessions, setSessions, i, { title: e.target.value })} /></div>
+                  <div className="field"><label htmlFor={`ss${i}`}>Starts</label><input id={`ss${i}`} className="input" type="datetime-local" value={x.startsAt} onChange={e => editRow(sessions, setSessions, i, { startsAt: e.target.value })} /></div>
+                  <div className="field"><label htmlFor={`sd${i}`}>Minutes</label><input id={`sd${i}`} className="input" inputMode="numeric" value={x.durationMin} onChange={e => editRow(sessions, setSessions, i, { durationMin: e.target.value })} /></div>
+                  <button type="button" className="btn ghost sm" onClick={() => setSessions(sessions.filter((_, j) => j !== i))} aria-label={`Remove live class ${i + 1}`}>Remove</button>
+                  <div className="field wide"><label htmlFor={`sj${i}`}>Join link</label><input id={`sj${i}`} className="input" type="url" value={x.joinUrl} maxLength={500} placeholder="https://" onChange={e => editRow(sessions, setSessions, i, { joinUrl: e.target.value })} /></div>
+                </div>
+              ))}
+              <button type="button" className="btn outline sm" onClick={() => setSessions([...sessions, blankSession()])}><Icon name="plus" />Add a live class</button>
+            </fieldset>
+          </>
+        )}
         <label className="check-line"><input type="checkbox" checked={f.active} onChange={set('active')} /> Published on the website</label>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
@@ -96,11 +147,18 @@ function Catalogue() {
 function Orders() {
   const run = useAction();
   const [kind, setKind] = useState('');
+  const [product, setProduct] = useState('');
   const [q, setQ] = useState('');
-  const [d, load] = useLoad(`/admin/orders${kind ? `?kind=${kind}` : ''}`, { orders: [], totals: {} });
+  const [cat] = useLoad('/admin/catalog', { products: [] });
+  const qs = new URLSearchParams();
+  if (kind) qs.set('kind', kind);
+  if (product) qs.set('product', product);
+  const [d, load] = useLoad(`/admin/orders${qs.toString() ? `?${qs}` : ''}`, { orders: [], totals: {} });
   if (!d) return <Loader />;
   const rows = d.orders.filter(o => !q || [o.id, o.title, o.customer, o.email, o.mobile].some(x => String(x || '').toLowerCase().includes(q.toLowerCase())));
   const setFulfil = async (o, fulfilment) => { if (await run(() => api('PUT', `/admin/orders/${o.id}`, { fulfilment }), 'Updated')) load(); };
+  const setCourse = async (o, courseStatus) => { if (await run(() => api('PUT', `/admin/orders/${o.id}/course`, { courseStatus }), courseStatus === 'completed' ? 'Marked complete' : 'Set to learning')) load(); };
+  const courses = (cat?.products || []).filter(p => p.kind === 'course');
   return (
     <>
       <div className="kpi-grid" style={{ marginBottom: 18 }}>
@@ -110,9 +168,15 @@ function Orders() {
       </div>
       <div className="toolbar">
         <SearchBox value={q} onChange={setQ} placeholder="Search order, name, mobile" />
-        <select className="input" style={{ width: 'auto' }} value={kind} onChange={e => setKind(e.target.value)} aria-label="Type">
+        <select className="input" style={{ width: 'auto' }} value={kind} onChange={e => { setKind(e.target.value); if (e.target.value !== 'course') setProduct(''); }} aria-label="Type">
           <option value="">All types</option><option value="course">Courses</option><option value="service">Services</option><option value="donation">Donations</option>
         </select>
+        {kind === 'course' && (
+          <select className="input" style={{ width: 'auto' }} value={product} onChange={e => setProduct(e.target.value)} aria-label="Course">
+            <option value="">All courses</option>
+            {courses.map(p => <option key={p.slug} value={p.slug}>{p.title}</option>)}
+          </select>
+        )}
       </div>
       {!rows.length ? <div className="empty"><Icon name="card" /><p>No orders match.</p></div> : (
         <div className="table-wrap">
@@ -130,6 +194,13 @@ function Orders() {
                       <select className="input" style={{ minHeight: 38, width: 'auto' }} value={o.fulfilment} onChange={e => setFulfil(o, e.target.value)} aria-label={`Status for ${o.id}`}>
                         {Object.entries(FULFIL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
+                    ) : o.kind === 'course' && o.status === 'paid' ? (
+                      <>
+                        <select className="input" style={{ minHeight: 38, width: 'auto' }} value={o.courseStatus || 'active'} onChange={e => setCourse(o, e.target.value)} aria-label={`Progress for ${o.id}`}>
+                          {Object.entries(COURSE_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                        {o.certificateNo && (o.courseStatus === 'completed') && <span className="sub">Certificate {o.certificateNo}</span>}
+                      </>
                     ) : <span className="muted">—</span>}
                   </td>
                 </tr>

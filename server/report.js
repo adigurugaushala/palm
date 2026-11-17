@@ -71,4 +71,30 @@ function renderReport(b, reviewer, out) {
   doc.end();
 }
 
-module.exports = { renderReport };
+// Certificate of completion, A4 landscape. Issued only after Guruji marks the course complete.
+function renderCertificate({ name, course, date, certNo }, out) {
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 50, info: { Title: `Guruji certificate ${certNo}` } });
+  for (const [k, f] of Object.entries(FONTS)) doc.registerFont(k, f);
+  doc.pipe(out);
+  const W = doc.page.width, H = doc.page.height;
+  doc.lineWidth(2).strokeColor(RED).rect(24, 24, W - 48, H - 48).stroke();
+  doc.lineWidth(0.6).strokeColor(ORANGE).rect(34, 34, W - 68, H - 68).stroke();
+  doc.y = 100;
+  write(doc, 'GURUJI', { bold: true, size: 18, color: RED, align: 'center', characterSpacing: 4 });
+  doc.moveDown(1.6);
+  write(doc, 'Certificate of completion', { size: 30, color: RED, align: 'center' });
+  doc.moveDown(0.8);
+  write(doc, 'This certifies that', { size: 12, color: GREY, align: 'center' });
+  doc.moveDown(0.4);
+  write(doc, name, { bold: true, size: 26, align: 'center' });
+  doc.moveDown(0.4);
+  write(doc, 'has successfully completed', { size: 12, color: GREY, align: 'center' });
+  doc.moveDown(0.4);
+  write(doc, course, { bold: true, size: 18, color: RED, align: 'center' });
+  doc.moveDown(2);
+  const when = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(date ? new Date(date) : new Date());
+  write(doc, `Issued on ${when}   ·   Certificate no. ${certNo}`, { size: 10, color: GREY, align: 'center' });
+  doc.end();
+}
+
+module.exports = { renderReport, renderCertificate };

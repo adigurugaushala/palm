@@ -118,6 +118,9 @@ const ProductSchema = new Schema({
   price: { type: Number, required: true, min: 1 },
   durationText: { type: String, default: '', maxlength: 120 },
   outcomes: { type: [String], default: [] },
+  // Course content. Only shown to learners who have paid for the course.
+  lessons: { type: [new Schema({ title: String, url: String, notes: String }, { _id: false })], default: [] },
+  sessions: { type: [new Schema({ title: String, startsAt: Date, durationMin: Number, joinUrl: String }, { _id: false })], default: [] },
   active: { type: Boolean, default: false },
   sort: { type: Number, default: 0 },
 }, { timestamps: true });
@@ -140,6 +143,10 @@ const OrderSchema = new Schema({
   mihpayid: { type: String, default: '' },
   mode: { type: String, default: '' },
   fulfilment: { type: String, enum: ['new', 'contacted', 'done'], default: 'new' },
+  // Course progress, set by Guruji. A certificate number is issued when a course is marked completed.
+  courseStatus: { type: String, enum: ['active', 'completed'], default: 'active' },
+  completedAt: { type: Date, default: null },
+  certificateNo: { type: String, default: '' },
   paidAt: { type: Date, default: null },
   raw: { type: Object, default: () => ({}) },
 }, { timestamps: true });

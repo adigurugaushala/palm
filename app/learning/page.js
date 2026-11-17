@@ -27,6 +27,7 @@ function Learning() {
       <div><span className="t">{o.title}</span><span className="s" style={{ display: 'block' }}>{o.id}{o.paidAt ? ` · ${fmtStamp(o.paidAt)}` : ''}{o.kind === 'donation' && o.purpose ? ` · ${o.purpose}` : ''}</span></div>
       <div style={{ textAlign: 'right' }}><b>{money(o.amount)}</b><span className={`badge ${o.status === 'paid' ? 'ok' : 'gold'}`} style={{ display: 'inline-flex', marginTop: 6 }}>{STATUS_LABEL[o.status] || o.status}</span>
         {o.kind === 'service' && o.status === 'paid' && <span className="s" style={{ display: 'block', marginTop: 4 }}>{FULFIL_LABEL[o.fulfilment] || ''}</span>}
+        {o.kind === 'course' && o.status === 'paid' && <Link className="link" style={{ display: 'block', marginTop: 6 }} href={`/learning/${o.id}`}>Open course</Link>}
       </div>
     </div>
   );

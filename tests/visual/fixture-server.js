@@ -104,6 +104,22 @@ app.get('/api/orders/:id', (req, res) => {
   const o = ORDERS.find(x => x.id === req.params.id) || { ...ORDERS[0], id: req.params.id, status: 'created', paidAt: null };
   res.json({ order: o });
 });
+app.get('/api/learning/:id', (req, res) => {
+  const o = ORDERS.find(x => x.id === req.params.id) || ORDERS[0];
+  res.json({ course: {
+    id: o.id, title: 'Foundations of Palmistry', durationText: '6 weeks · online, one live class a week', paidAt: o.paidAt,
+    courseStatus: 'active', completedAt: null, certificateNo: '',
+    lessons: [
+      { title: 'The shape of the hand', url: 'https://video.example/lesson-1', notes: 'Watch once, then practise on your own palm.' },
+      { title: 'The life line', url: 'https://video.example/lesson-2', notes: '' },
+      { title: 'Reading notes (to follow)', url: '', notes: '' },
+    ],
+    sessions: [
+      { title: 'Live class 1: mounts', startsAt: new Date(today.getTime() + 2 * 864e5).toISOString(), durationMin: 60, joinUrl: 'https://meet.example/gj-1' },
+      { title: 'Live class 2: lines', startsAt: new Date(today.getTime() + 9 * 864e5).toISOString(), durationMin: 60, joinUrl: '' },
+    ],
+  } });
+});
 app.get('/api/admin/catalog', (req, res) => res.json({ products: PRODUCTS.map(p => ({ ...p })).concat([{ ...PRODUCTS[0], slug: 'palm-draft', title: 'Draft: Hand Shapes', active: false, price: 999 }]) }));
 app.get('/api/admin/orders', (req, res) => {
   const kind = req.query.kind;
