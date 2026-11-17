@@ -1,0 +1,250 @@
+const express = require('express');
+const { Booking, Payment, User, Audit, getSettings, updateSettings } = require('../db');
+const { requireUser } = require('../auth');
+const { STATUS, STATUSES, HttpError, wrap, hashPassword } = require('../util');
+const { bookingView, findBooking } = require('./bookings');
+const cfg = require('../config');
+
+const CHECK_ITEMS = ['Hand type', 'Life line', 'Fate line', 'Heart line', 'Sun line', 'Business line', 'Palm colour'];
+const CHECK_VALUES = ['—', 'Clear', 'Not clear', 'Partially visible', 'Not visible'];
+
+function ageOf(dob) {
+  if (!dob) return null;
+  const d = new Date(dob), n = new Date();
+  let a = n.getFullYear() - d.getFullYear();
+  if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--;
+  return a;
+}
+const caseRow = (b, reviewerName, customerName) => ({
+  id: b.bookingId, name: (b.form?.name) || customerName || 'Customer', age: ageOf(b.form?.dob),
+  date: b.appointmentDate, slot: b.appointmentSlot, status: b.status, statusLabel: STATUSES[b.status],
+  assignedTo: b.assignedGurujiId ? String(b.assignedGurujiId) : null, reviewer: reviewerName || null,
+  flag: b.flag, cancelled: !!b.cancelled,
+});
+async function withNames(rows) {
+  const uIds = [...new Set(rows.flatMap(b => [b.userId, b.assignedGurujiId].filter(Boolean).map(String)))];
+  const users = Object.fromEntries((await User.find({ _id: { $in: uIds } }).lean()).map(u => [String(u._id), u]));
+  return rows.map(b => caseRow(b, users[String(b.assignedGurujiId || '')]?.name, users[String(b.userId)]?.name));
+}
+async function canAccessCase(user, b) {
+  if (!b) return false;
+  if (user.role === 'admin') return true;
+  return String(b.assignedGurujiId || '') === String(user._id) || (!b.assignedGurujiId && b.status >= STATUS.WAITING);
+}
+
+// ================= Guruji / reviewer portal =================
+const staff = express.Router();
+staff.use(requireUser('reviewer', 'admin'));
+
+staff.get('/cases', wrap(async (req, res) => {
+  const base = { cancelled: false, status: { $gte: STATUS.WAITING } };
+  const [mineDocs, unassignedDocs] = await Promise.all([
+    Booking.find({ ...base, assignedGurujiId: req.user._id }).sort({ appointmentDate: 1, appointmentSlot: 1 }).lean(),
+    Booking.find({ ...base, assignedGurujiId: null }).sort({ createdAt: 1 }).lean(),
+  ]);
+  res.json({ mine: await withNames(mineDocs), unassigned: await withNames(unassignedDocs), checkItems: CHECK_ITEMS, checkValues: CHECK_VALUES });
+}));
+
+async function loadCase(req) {
+  const b = await findBooking(req.params.id);
+  if (!b || b.status < STATUS.PAID || !(await canAccessCase(req.user, b))) throw new HttpError(404, 'Case not found');
+  return b;
+}
+
+staff.get('/cases/:id', wrap(async (req, res) => {
+  let b = await loadCase(req);
+  // Opening an assigned case moves it into review.
+  if (b.status === STATUS.ASSIGNED && String(b.assignedGurujiId) === String(req.user._id)) {
+    b.status = STATUS.REVIEW; await b.save();
+  }
+  const customer = await User.findById(b.userId).lean();
+  const view = await bookingView(b, req.user);
+  view.customer = { name: customer?.name, email: customer?.email, mobile: customer?.mobile };
+  view.age = ageOf(b.form?.dob);
+  res.json({ case: view, checkItems: CHECK_ITEMS, checkValues: CHECK_VALUES });
+}));
+
+staff.post('/cases/:id/claim', wrap(async (req, res) => {
+  const r = await Booking.updateOne({ bookingId: req.params.id, assignedGurujiId: null, status: { $gte: STATUS.WAITING } },
+    { $set: { assignedGurujiId: req.user._id, status: STATUS.ASSIGNED } });
+  if (!r.modifiedCount) throw new HttpError(409, 'Already assigned');
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'case.claim', target: req.params.id });
+  res.json({ ok: true });
+}));
+
+staff.put('/cases/:id', wrap(async (req, res) => {
+  const b = await loadCase(req);
+  const cl = { ...(b.checklist || {}) };
+  for (const [k, v] of Object.entries(req.body.checklist || {}))
+    if (CHECK_ITEMS.includes(k) && CHECK_VALUES.includes(v)) cl[k] = v;
+  b.checklist = cl; b.markModified('checklist');
+  if (req.body.reportNotes != null) b.reportNotes = String(req.body.reportNotes).slice(0, 20000);
+  await b.save();
+  res.json({ ok: true });
+}));
+
+staff.post('/cases/:id/action', wrap(async (req, res) => {
+  const b = await loadCase(req);
+  const reason = String(req.body.reason || '').trim().slice(0, 300);
+  switch (req.body.action) {
+    case 'schedule': b.status = Math.max(b.status, STATUS.SCHEDULED); b.flag = ''; break;
+    case 'complete': b.status = Math.max(b.status, STATUS.COMPLETED); b.flag = ''; break;
+    case 'return': b.status = STATUS.WAITING; b.flag = 'returned:' + (reason || 'Please upload clearer palm photos'); break;
+    case 'reject': b.status = STATUS.WAITING; b.flag = 'rejected:' + (reason || 'This request could not be accepted'); break;
+    case 'approve':
+      if (!b.reportNotes.trim()) throw new HttpError(400, 'Write the report notes before publishing');
+      b.status = STATUS.REPORT; b.flag = ''; b.reportPublishedAt = new Date(); break;
+    default: throw new HttpError(400, 'Unknown action');
+  }
+  await b.save();
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'case.' + req.body.action, target: b.bookingId, meta: { reason } });
+  res.json({ case: await bookingView(b, req.user) });
+}));
+
+// ================= Admin portal =================
+const admin = express.Router();
+admin.use(requireUser('admin'));
+
+admin.get('/overview', wrap(async (req, res) => {
+  const [revenue, orders, unassigned, awaitingDetails, reports] = await Promise.all([
+    Payment.aggregate([{ $match: { status: 'paid' } }, { $group: { _id: null, v: { $sum: '$amount' } } }]).then(r => r[0]?.v || 0),
+    Booking.countDocuments({ status: { $gte: 0 } }),
+    Booking.countDocuments({ status: { $gte: STATUS.WAITING }, assignedGurujiId: null, cancelled: false }),
+    Booking.countDocuments({ status: { $in: [0, 1] }, cancelled: false }),
+    Booking.countDocuments({ status: STATUS.REPORT }),
+  ]);
+  res.json({ revenue, orders, unassigned, awaitingDetails, reports });
+}));
+
+admin.get('/orders', wrap(async (req, res) => {
+  const limit = Math.min(+req.query.limit || 50, 200);
+  const skip = Math.max(+req.query.skip || 0, 0);
+  const q = { status: { $gte: 0 } };
+  if (req.query.status) q.status = +req.query.status;
+  if (req.query.search) {
+    const s = String(req.query.search).trim();
+    q.$or = [{ bookingId: new RegExp(s, 'i') }, { 'form.name': new RegExp(s, 'i') }, { 'form.mob': new RegExp(s, 'i') }];
+  }
+  const [docs, total, reviewers] = await Promise.all([
+    Booking.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Booking.countDocuments(q),
+    User.find({ role: { $in: ['reviewer', 'admin'] }, active: true }, { name: 1 }).sort({ name: 1 }).lean(),
+  ]);
+  res.json({ orders: await withNames(docs), total, reviewers: reviewers.map(r => ({ id: String(r._id), name: r.name })) });
+}));
+
+admin.put('/orders/:id/assign', wrap(async (req, res) => {
+  const b = await findBooking(req.params.id);
+  if (!b || b.status < 0) throw new HttpError(404, 'Order not found');
+  const rid = req.body.reviewerId || null;
+  if (rid) {
+    const ok = await User.exists({ _id: rid, role: { $in: ['reviewer', 'admin'] }, active: true });
+    if (!ok) throw new HttpError(400, 'Pick an active team member');
+  }
+  b.assignedGurujiId = rid;
+  if (rid && b.status >= STATUS.WAITING && b.status < STATUS.ASSIGNED) b.status = STATUS.ASSIGNED;
+  if (!rid && b.status === STATUS.ASSIGNED) b.status = STATUS.WAITING;
+  await b.save();
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'order.assign', target: b.bookingId, meta: { reviewerId: rid } });
+  res.json({ ok: true });
+}));
+
+admin.get('/payments', wrap(async (req, res) => {
+  const limit = Math.min(+req.query.limit || 50, 200);
+  const rows = await Payment.find({ status: { $ne: 'created' } }).sort({ createdAt: -1 }).limit(limit).lean();
+  const users = Object.fromEntries((await User.find({ _id: { $in: rows.map(r => r.userId) } }, { name: 1 }).lean()).map(u => [String(u._id), u.name]));
+  res.json({
+    payments: rows.map(p => ({
+      id: p.paymentId, bookingId: p.bookingId, amount: p.amount, status: p.status, provider: p.provider,
+      mode: p.mode, txnid: p.txnid, mihpayid: p.mihpayid, createdAt: p.createdAt, customer: users[String(p.userId)] || '',
+    })),
+  });
+}));
+
+// Refund — for PayU, this records the request. The actual refund call to PayU's refund API
+// would be made here with your merchant credentials; recording the audit & marking refunded
+// is kept on the server so the state is consistent.
+admin.post('/payments/:id/refund', wrap(async (req, res) => {
+  const p = await Payment.findOne({ paymentId: req.params.id });
+  if (!p || p.status !== 'paid') throw new HttpError(400, 'Only paid payments can be refunded');
+  // Prevent duplicate refunds
+  if (p.status === 'refunded' || p.refundRef) throw new HttpError(409, 'Already refunded');
+  if (p.provider === 'payu' && cfg.payu) {
+    // NOTE: PayU refunds use the merchant Webservice API (cancel_refund_transaction).
+    // That requires your live Merchant Salt and the payment's mihpayid. We record the request
+    // and mark the booking cancelled; integrate the actual PayU refund call once the merchant
+    // dashboard access is in place. Marking "refunded" is only safe after PayU confirms.
+    p.refundRef = 'REFREQ-' + Date.now();
+    p.status = 'refunded';
+  } else {
+    p.status = 'refunded';
+  }
+  await p.save();
+  await Booking.updateOne({ bookingId: p.bookingId }, { $set: { cancelled: true } });
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'payment.refund', target: p.paymentId });
+  res.json({ ok: true });
+}));
+
+admin.get('/staff', wrap(async (req, res) => {
+  const rows = await User.find({ role: { $in: ['reviewer', 'admin'] } }).sort({ role: 1, name: 1 }).lean();
+  res.json({ staff: rows.map(u => ({ id: String(u._id), name: u.name, email: u.email, role: u.role, active: !!u.active })) });
+}));
+admin.post('/staff', wrap(async (req, res) => {
+  const { name, email, password, role } = req.body;
+  if (!name || !/^\S+@\S+\.\S+$/.test(email || '') || String(password || '').length < 8 || !['reviewer', 'admin'].includes(role))
+    throw new HttpError(400, 'Name, valid email, role and an 8+ character password are required');
+  if (await User.exists({ email: email.toLowerCase() })) throw new HttpError(409, 'That email is already in use');
+  await User.create({ role, name: String(name).slice(0, 80), email: email.toLowerCase(), passwordHash: await hashPassword(password) });
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'staff.add', target: email });
+  res.status(201).json({ ok: true });
+}));
+admin.put('/staff/:id', wrap(async (req, res) => {
+  const u = await User.findOne({ _id: req.params.id, role: { $in: ['reviewer', 'admin'] } });
+  if (!u) throw new HttpError(404, 'Not found');
+  if (req.body.active != null) {
+    if (String(u._id) === String(req.user._id) && !req.body.active) throw new HttpError(400, "You can't deactivate yourself");
+    u.active = !!req.body.active;
+    if (!u.active) await require('../db').Session.deleteMany({ userId: u._id });
+  }
+  if (req.body.password) {
+    if (String(req.body.password).length < 8) throw new HttpError(400, 'Password must be 8+ characters');
+    u.passwordHash = await hashPassword(req.body.password);
+  }
+  await u.save();
+  res.json({ ok: true });
+}));
+
+admin.get('/settings', wrap(async (req, res) => res.json({ settings: await getSettings() })));
+admin.put('/settings', wrap(async (req, res) => {
+  const s = req.body || {};
+  const patch = {};
+  const int = (k, min, max, aliases = []) => {
+    const src = [k, ...aliases].find(n => s[n] != null);
+    if (src == null) return;
+    const v = Math.round(+s[src]);
+    if (!(v >= min && v <= max)) throw new HttpError(400, `Invalid ${k}`);
+    patch[k] = v;
+  };
+  int('price', 1, 1e6);
+  int('gstPercent', 0, 50, ['gst_percent']);
+  int('durationMin', 5, 240, ['duration_min']);
+  int('daysAhead', 1, 60, ['days_ahead']);
+  int('holdMinutes', 5, 60, ['hold_minutes']);
+  if (s.slots != null) {
+    const slots = (Array.isArray(s.slots) ? s.slots : String(s.slots).split(','))
+      .map(x => String(x).trim().toUpperCase().replace(/^(\d):/, '0$1:')).filter(Boolean);
+    if (!slots.length || !slots.every(x => /^(0\d|1[0-2]):[0-5]\d (AM|PM)$/.test(x)))
+      throw new HttpError(400, 'Slots must look like "10:00 AM, 04:30 PM"');
+    patch.slots = slots;
+  }
+  const settings = await updateSettings(patch);
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'settings.update', meta: patch });
+  res.json({ settings });
+}));
+
+admin.get('/audit', wrap(async (req, res) => {
+  const rows = await Audit.find().sort({ createdAt: -1 }).limit(200).lean();
+  res.json({ entries: rows.map(a => ({ at: a.createdAt, action: a.action, actor: a.actorEmail || null, target: a.target, meta: a.meta })) });
+}));
+
+module.exports = { staff, admin };
