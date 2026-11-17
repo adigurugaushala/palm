@@ -37,12 +37,16 @@ const staff = express.Router();
 staff.use(requireUser('reviewer', 'admin'));
 
 staff.get('/cases', wrap(async (req, res) => {
-  const base = { cancelled: false, status: { $gte: STATUS.WAITING } };
-  const [mineDocs, unassignedDocs] = await Promise.all([
+  // Rejected cases are kept out of the working queues and listed separately as closed.
+  const base = { cancelled: false, status: { $gte: STATUS.WAITING }, flag: { $not: /^rejected:/ } };
+  const closedQ = { status: { $gte: STATUS.WAITING }, flag: /^rejected:/ };
+  if (req.user.role !== 'admin') closedQ.assignedGurujiId = req.user._id;
+  const [mineDocs, unassignedDocs, closedDocs] = await Promise.all([
     Booking.find({ ...base, assignedGurujiId: req.user._id }).sort({ appointmentDate: 1, appointmentSlot: 1 }).lean(),
     Booking.find({ ...base, assignedGurujiId: null }).sort({ createdAt: 1 }).lean(),
+    Booking.find(closedQ).sort({ updatedAt: -1 }).limit(50).lean(),
   ]);
-  res.json({ mine: await withNames(mineDocs), unassigned: await withNames(unassignedDocs), checkItems: CHECK_ITEMS, checkValues: CHECK_VALUES });
+  res.json({ mine: await withNames(mineDocs), unassigned: await withNames(unassignedDocs), closed: await withNames(closedDocs), checkItems: CHECK_ITEMS, checkValues: CHECK_VALUES });
 }));
 
 async function loadCase(req) {
@@ -106,23 +110,80 @@ const admin = express.Router();
 admin.use(requireUser('admin'));
 
 admin.get('/overview', wrap(async (req, res) => {
-  const [revenue, orders, unassigned, awaitingDetails, reports] = await Promise.all([
+  const [revenue, orders, unassigned, awaitingDetails, reports, paidCount, pendingPayments, activeGurujis, completed] = await Promise.all([
     Payment.aggregate([{ $match: { status: 'paid' } }, { $group: { _id: null, v: { $sum: '$amount' } } }]).then(r => r[0]?.v || 0),
     Booking.countDocuments({ status: { $gte: 0 } }),
     Booking.countDocuments({ status: { $gte: STATUS.WAITING }, assignedGurujiId: null, cancelled: false }),
     Booking.countDocuments({ status: { $in: [0, 1] }, cancelled: false }),
     Booking.countDocuments({ status: STATUS.REPORT }),
+    Payment.countDocuments({ status: 'paid' }),
+    Payment.countDocuments({ status: 'created', createdAt: { $gt: new Date(Date.now() - 864e5) } }),
+    User.countDocuments({ role: 'reviewer', active: true }),
+    Booking.countDocuments({ status: { $gte: STATUS.COMPLETED }, cancelled: false }),
   ]);
-  res.json({ revenue, orders, unassigned, awaitingDetails, reports });
+  res.json({ revenue, orders, unassigned, awaitingDetails, reports, paidCount, pendingPayments, activeGurujis, completed });
+}));
+
+// Revenue per day (last 30 days), bookings per status, and workload per team member.
+admin.get('/analytics', wrap(async (req, res) => {
+  const since = new Date(Date.now() - 30 * 864e5);
+  const [daily, byStatus, workload] = await Promise.all([
+    Payment.aggregate([
+      { $match: { status: 'paid', updatedAt: { $gte: since } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$updatedAt', timezone: 'Asia/Kolkata' } }, revenue: { $sum: '$amount' }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+    Booking.aggregate([{ $match: { status: { $gte: 0 }, cancelled: false } }, { $group: { _id: '$status', n: { $sum: 1 } } }]),
+    Booking.aggregate([
+      { $match: { assignedGurujiId: { $ne: null }, cancelled: false, status: { $gte: STATUS.ASSIGNED, $lt: STATUS.REPORT } } },
+      { $group: { _id: '$assignedGurujiId', open: { $sum: 1 } } },
+    ]),
+  ]);
+  const team = await User.find({ role: { $in: ['reviewer', 'admin'] } }, { name: 1, active: 1, role: 1 }).lean();
+  const load = Object.fromEntries(workload.map(w => [String(w._id), w.open]));
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - i * 864e5));
+    const hit = daily.find(x => x._id === d);
+    days.push({ date: d, revenue: hit?.revenue || 0, count: hit?.count || 0 });
+  }
+  res.json({
+    days,
+    byStatus: STATUSES.map((label, i) => ({ status: i, label, n: byStatus.find(s => s._id === i)?.n || 0 })),
+    workload: team.map(t => ({ id: String(t._id), name: t.name, role: t.role, active: !!t.active, open: load[String(t._id)] || 0 })),
+  });
+}));
+
+admin.get('/customers', wrap(async (req, res) => {
+  const limit = Math.min(+req.query.limit || 50, 200);
+  const skip = Math.max(+req.query.skip || 0, 0);
+  const q = { role: 'customer' };
+  if (req.query.search) {
+    const s = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    q.$or = [{ name: new RegExp(s, 'i') }, { email: new RegExp(s, 'i') }, { mobile: new RegExp(s, 'i') }];
+  }
+  const [users, total] = await Promise.all([User.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(), User.countDocuments(q)]);
+  const counts = await Booking.aggregate([
+    { $match: { userId: { $in: users.map(u => u._id) }, status: { $gte: 0 } } },
+    { $group: { _id: '$userId', n: { $sum: 1 }, last: { $max: '$appointmentDate' } } },
+  ]);
+  const byUser = Object.fromEntries(counts.map(c => [String(c._id), c]));
+  res.json({
+    total,
+    customers: users.map(u => ({ id: String(u._id), name: u.name, email: u.email, mobile: u.mobile, active: !!u.active, joined: u.createdAt,
+      bookings: byUser[String(u._id)]?.n || 0, lastBooking: byUser[String(u._id)]?.last || null, google: !!u.googleSub })),
+  });
 }));
 
 admin.get('/orders', wrap(async (req, res) => {
   const limit = Math.min(+req.query.limit || 50, 200);
   const skip = Math.max(+req.query.skip || 0, 0);
   const q = { status: { $gte: 0 } };
-  if (req.query.status) q.status = +req.query.status;
+  if (req.query.status !== undefined && req.query.status !== '') q.status = +req.query.status;
+  if (req.query.date) q.appointmentDate = String(req.query.date);
   if (req.query.search) {
-    const s = String(req.query.search).trim();
+    // Escape user input so it is matched literally, not as a regular expression.
+    const s = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     q.$or = [{ bookingId: new RegExp(s, 'i') }, { 'form.name': new RegExp(s, 'i') }, { 'form.mob': new RegExp(s, 'i') }];
   }
   const [docs, total, reviewers] = await Promise.all([
@@ -156,32 +217,34 @@ admin.get('/payments', wrap(async (req, res) => {
   res.json({
     payments: rows.map(p => ({
       id: p.paymentId, bookingId: p.bookingId, amount: p.amount, status: p.status, provider: p.provider,
-      mode: p.mode, txnid: p.txnid, mihpayid: p.mihpayid, createdAt: p.createdAt, customer: users[String(p.userId)] || '',
+      mode: p.mode, txnid: p.txnid, mihpayid: p.mihpayid, refundRef: p.refundRef, createdAt: p.createdAt, customer: users[String(p.userId)] || '',
     })),
   });
 }));
 
-// Refund — for PayU, this records the request. The actual refund call to PayU's refund API
-// would be made here with your merchant credentials; recording the audit & marking refunded
-// is kept on the server so the state is consistent.
+// Refunds. A demo payment is refunded at once. A PayU payment moves to "refund_pending":
+// the refund is issued from the PayU merchant dashboard (or its refund API, once enabled for
+// this merchant account), and an admin confirms it here with PayU's refund reference.
+// Nothing is shown as refunded until that confirmation.
 admin.post('/payments/:id/refund', wrap(async (req, res) => {
   const p = await Payment.findOne({ paymentId: req.params.id });
-  if (!p || p.status !== 'paid') throw new HttpError(400, 'Only paid payments can be refunded');
-  // Prevent duplicate refunds
-  if (p.status === 'refunded' || p.refundRef) throw new HttpError(409, 'Already refunded');
-  if (p.provider === 'payu' && cfg.payu) {
-    // NOTE: PayU refunds use the merchant Webservice API (cancel_refund_transaction).
-    // That requires your live Merchant Salt and the payment's mihpayid. We record the request
-    // and mark the booking cancelled; integrate the actual PayU refund call once the merchant
-    // dashboard access is in place. Marking "refunded" is only safe after PayU confirms.
-    p.refundRef = 'REFREQ-' + Date.now();
-    p.status = 'refunded';
-  } else {
-    p.status = 'refunded';
-  }
+  if (!p) throw new HttpError(404, 'Payment not found');
+  if (p.status === 'refund_pending' || p.status === 'refunded') throw new HttpError(409, 'A refund has already been requested for this payment');
+  if (p.status !== 'paid') throw new HttpError(400, 'Only paid payments can be refunded');
+  p.status = p.provider === 'payu' ? 'refund_pending' : 'refunded';
+  p.refundRef = p.provider === 'payu' ? '' : 'DEMO-' + Date.now();
   await p.save();
   await Booking.updateOne({ bookingId: p.bookingId }, { $set: { cancelled: true } });
-  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'payment.refund', target: p.paymentId });
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'payment.refund.request', target: p.paymentId, meta: { bookingId: p.bookingId, amount: p.amount } });
+  res.json({ ok: true, status: p.status });
+}));
+
+admin.post('/payments/:id/refund/confirm', wrap(async (req, res) => {
+  const ref = String(req.body.reference || '').trim().slice(0, 80);
+  if (!ref) throw new HttpError(400, "Enter PayU's refund reference");
+  const p = await Payment.findOneAndUpdate({ paymentId: req.params.id, status: 'refund_pending' }, { $set: { status: 'refunded', refundRef: ref } }, { new: true });
+  if (!p) throw new HttpError(409, 'This payment is not awaiting a refund');
+  await Audit.create({ actorId: req.user._id, actorEmail: req.user.email, action: 'payment.refund.confirm', target: p.paymentId, meta: { reference: ref } });
   res.json({ ok: true });
 }));
 

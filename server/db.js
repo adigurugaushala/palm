@@ -50,7 +50,7 @@ const PaymentSchema = new Schema({
   txnid: { type: String, index: true },          // our transaction id sent to PayU
   mihpayid: { type: String, default: '' },       // PayU's reference
   amount: { type: Number, required: true },
-  status: { type: String, enum: ['created', 'paid', 'failed', 'refunded'], required: true, default: 'created', index: true },
+  status: { type: String, enum: ['created', 'paid', 'failed', 'refund_pending', 'refunded'], required: true, default: 'created', index: true },
   mode: { type: String, default: '' },           // credit card / upi / etc
   refundRef: { type: String, default: '' },
   verifiedAt: { type: Date, default: null },
@@ -96,7 +96,20 @@ const AuditSchema = new Schema({
   meta: { type: Object, default: () => ({}) },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
+// Customer reviews — only customers with a completed consultation can write one,
+// and nothing is shown publicly until an admin approves it.
+const ReviewSchema = new Schema({
+  bookingId: { type: String, required: true, unique: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  rating: { type: Number, min: 1, max: 5, required: true },
+  text: { type: String, required: true, maxlength: 1200 },
+  displayName: { type: String, default: '' },
+  city: { type: String, default: '' },
+  status: { type: String, enum: ['pending', 'approved', 'hidden'], default: 'pending', index: true },
+}, { timestamps: true });
+
 const models = {
+  Review: model('Review', ReviewSchema),
   User: model('User', UserSchema),
   Booking: model('Booking', BookingSchema),
   Payment: model('Payment', PaymentSchema),

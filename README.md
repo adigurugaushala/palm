@@ -1,12 +1,12 @@
 # Guruji Palmistry — full-stack web app
 
-Customer booking, Guruji review and admin management for palmistry consultations, with PayU hosted checkout, MongoDB and Jitsi Meet calls. Ported from the Guruji interactive prototype — same look and flow, now backed by a real stack.
+Customer booking, Guruji review and admin management for palmistry consultations, with PayU hosted checkout, MongoDB and Jitsi Meet calls. A Next.js front-end in a premium Indian heritage visual identity (burgundy, maroon, antique gold and ivory; Cormorant Garamond, Playfair Display, DM Sans, Noto Sans Telugu and Devanagari), served by the same Express process that owns the API.
 
 Three portals in one app:
 
 - **Customer** — register with email + password (or Google), book a slot, pay through PayU, fill in details, upload palm photos, chat with their Guruji, join a Jitsi Meet call, download the PDF report.
 - **Guruji / reviewer** — see assigned and unassigned cases, claim one, fill the observation checklist, write and publish the report, return or reject cases.
-- **Admin** — live KPIs, order management with search and assignment, PayU payment history, team management, booking settings, audit log.
+- **Admin** — KPIs and 30-day revenue chart, bookings by stage, team workload, bookings with search, stage/date filters and Guruji assignment, customers, PayU payments with transaction details and refunds, Guruji team, review moderation, price and slot settings, audit log.
 
 ## Stack
 
@@ -17,7 +17,8 @@ Three portals in one app:
 - **Google Sign-In** (via `google-auth-library`; ID token verified server-side)
 - **Jitsi Meet** (public instance by default; swap for self-hosted or JaaS in production)
 - **PDFKit** for the consultation report, with Noto Sans Latin / Telugu / Devanagari fonts bundled
-- **Vanilla JS front-end** — no build step, same CSS and markup as the prototype
+- **Next.js 16 (App Router) + React 19** front-end, mounted inside the Express server on one port so cookies and PayU callbacks work unchanged
+- **GSAP + ScrollTrigger** for reveals and the intro, **Lenis** for smooth native scrolling (both MIT/standard licences, loaded only on the landing page); no Lottie or Anime.js — the hand-drawn SVG work did not need them
 - **bcryptjs** for password hashing, **multer** + **image-size** for uploads
 
 **No SMS or OTP dependency.** No Twilio, Fast2SMS, Razorpay, Firebase Auth, or SQLite in the runtime.
@@ -28,7 +29,8 @@ Three portals in one app:
 unzip guruji-fullstack-v2.zip && cd guruji
 cp .env.example .env     # fill in SESSION_SECRET and (for real payments) PAYU_MERCHANT_KEY / PAYU_MERCHANT_SALT
 npm install
-npm start
+npm run build    # builds the Next.js front-end (needed before npm start in production)
+npm start        # or `npm run dev` for hot reload
 # → http://localhost:3000
 ```
 
@@ -149,9 +151,10 @@ All endpoints live under `/api`. Non-GET requests need the `x-guruji: 1` header.
 ## Testing
 
 - `npm test` runs the unit tests (`node --test`) for the PayU hash formulas, bcrypt round-trip, and IST slot parsing.
+- Visual QA without a database: `npm run build`, then `node tests/visual/fixture-server.js 3200` (the real front-end against sample data; switch role with the `mock_role` cookie) and `npm run test:visual` — screenshots every screen at 1440, 820 and 390 px into `/tmp/shots` and reports console errors, failed requests and horizontal overflow. `npm run test:motion` scrolls the animated landing page and checks every section finishes visible.
 - Playwright scaffolding is included for browser tests; install it with `npm run test:e2e:install`, then `npm run test:e2e`.
 
-A `.github/workflows/ci.yml` runs the unit tests on push. Add the Playwright e2e matrix once the staging URL is set up.
+A `.github/workflows/ci.yml` runs the unit tests and the Next.js build on push. Add the Playwright e2e matrix once the staging URL is set up.
 
 ## Backups
 
@@ -161,6 +164,7 @@ Mongo stores everything except uploaded palm photos. `mongodump --uri "$MONGODB_
 
 - [ ] Rotate all secrets in `.env` — especially `SESSION_SECRET` and `PAYU_MERCHANT_SALT`.
 - [ ] Set `NODE_ENV=production`, `APP_BASE_URL=https://yourdomain.com`.
+- [ ] Run `npm ci && npm run build` on the server (or in your deploy step) before `npm start`.
 - [ ] Point `MONGODB_URI` at your Atlas cluster or a managed Mongo.
 - [ ] Set `PAYU_MODE=live` only after a full test-mode run.
 - [ ] Register the PayU success / failure URLs on the merchant dashboard — they are `${APP_BASE_URL}/api/payu/success` and `/api/payu/failure`; webhook is `/api/payu/webhook`.

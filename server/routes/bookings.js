@@ -94,7 +94,7 @@ router.get('/config', wrap(async (req, res) => {
     statuses: STATUSES, topics: TOPICS,
     googleClientId: cfg.googleClientId || null, devLogin: cfg.devLogin,
     payments: cfg.payu ? { mode: 'payu', env: cfg.payu.mode } : cfg.demoPayments ? { mode: 'demo' } : { mode: 'off' },
-    meet: { provider: cfg.meetProvider },
+    meet: { provider: cfg.meetProvider, base: cfg.meetBase },
     supportEmail: cfg.supportEmail,
   });
 }));
@@ -169,6 +169,27 @@ async function preparePayuPayment(booking, user) {
   });
   return { mode: 'payu', action, fields, env: cfg.payu.mode };
 }
+
+// Start (or restart) payment for an unpaid booking. Each attempt gets a fresh PayU txnid,
+// which is what PayU requires for retries and for recovering a refreshed checkout page.
+router.post('/bookings/:id/pay', requireUser('customer'), wrap(async (req, res) => {
+  const b = await findBooking(req.params.id);
+  if (!b || String(b.userId) !== String(req.user._id)) throw new HttpError(404, 'Booking not found');
+  if (b.status >= STATUS.PAID) throw new HttpError(409, 'This booking is already paid');
+  if (!cfg.payu && !cfg.demoPayments) throw new HttpError(503, 'Payments are not configured yet');
+  const holdMs = (await getSettings()).holdMinutes * 60e3;
+  if (b.cancelled || b.createdAt.getTime() < Date.now() - holdMs) {
+    // The hold lapsed — re-take the slot only if nobody else has it.
+    if (await slotTaken(b.appointmentDate, b.appointmentSlot, b.bookingId)) throw new HttpError(409, 'That time was taken while you were away — please choose another slot');
+    await Booking.updateMany({ userId: req.user._id, status: -1, cancelled: false, bookingId: { $ne: b.bookingId } }, { $set: { cancelled: true } });
+    // createdAt doubles as the hold timestamp; Mongoose marks it immutable, so use the driver directly.
+    await Booking.collection.updateOne({ _id: b._id }, { $set: { cancelled: false, createdAt: new Date() } });
+    b.cancelled = false;
+  }
+  await Payment.updateMany({ bookingId: b.bookingId, status: 'created' }, { $set: { status: 'failed' } });
+  const payment = cfg.payu ? await preparePayuPayment(b, req.user) : await prepareDemoPayment(b);
+  res.json({ booking: await bookingView(b, req.user), payment });
+}));
 
 router.post('/payments/demo', requireUser('customer'), wrap(async (req, res) => {
   if (!cfg.demoPayments) throw new HttpError(404, 'Not found');

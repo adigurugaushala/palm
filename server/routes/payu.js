@@ -8,7 +8,12 @@ const { markPaid, markFailed, findBooking } = require('./bookings');
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
 
-function redirectHome(res, hash) { res.redirect(303, cfg.appBaseUrl + hash); }
+// The Next.js front-end uses real paths: /book/:id/paid and /book/:id/failed.
+function redirectHome(res, hash) {
+  const m = /^\/#\/(paid|failed)\/?(.*)$/.exec(hash);
+  const target = m ? (m[2] ? `/book/${m[2]}/${m[1]}` : '/book') : hash;
+  res.redirect(303, cfg.appBaseUrl + target);
+}
 
 // Browser is redirected here by PayU after a successful payment (form-encoded body).
 // The hash is verified before anything is marked paid — a redirect by itself is not proof.
