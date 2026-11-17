@@ -11,7 +11,9 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium --with-deps"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@fontsource/noto-sans": "^5.2.5",
     "@fontsource/noto-sans-devanagari": "^5.2.5",
@@ -27,6 +29,7 @@
     "pdfkit": "^0.17.0"
   },
   "devDependencies": {
-    "mongodb-memory-server": "^11.0.0"
+    "mongodb-memory-server": "^11.0.0",
+    "puppeteer-core": "^25.18.0"
   }
 }

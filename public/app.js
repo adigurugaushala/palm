@@ -54,7 +54,7 @@ addEventListener('popstate', () => { parseHash(); load(); });
 async function load() {
   stopPoll();
   let s = S.screen;
-  const ok = s === 'login' ? !ME
+  const ok = s === 'login' || s === 'staff-login' ? !ME
     : SCREENS_CUSTOMER.includes(s) ? ME?.role === 'customer'
     : SCREENS_STAFF.includes(s) ? ['reviewer', 'admin'].includes(ME?.role)
     : s === 'ahome' ? ME?.role === 'admin' : false;
@@ -131,7 +131,13 @@ ${CFG.googleClientId ? '<div id="gbtn"></div>' : ''}
 <button class="pri" data-a="emaillogin">${t('emailLogin')}</button>
 <button class="sec" data-a="emailregister" style="margin-top:-6px">Create a new account</button>
 ${CFG.devLogin ? '<div class="demo">DEV MODE — "Continue with name" below; disable in production</div><button class="out" data-a="devlogin" style="font-size:12px">Dev continue with just a name</button>' : ''}
-<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="out" data-a="staff" data-v="Guruji portal" style="font-size:12px">Guruji portal</button><button class="out" data-a="staff" data-v="Admin portal" style="font-size:12px">Admin portal</button><button class="sec" data-a="lang" style="font-size:12px">${t('lang')}</button></div><p class="mut">By continuing, you agree to our <a href="#" data-a="terms" style="color:var(--r)">Terms & Privacy Policy</a>.</p></main>`,
+<button class="sec" data-a="lang" style="font-size:12px;width:auto;margin:6px auto">${t('lang')}</button><p class="mut">By continuing, you agree to our <a href="#" data-a="terms" style="color:var(--r)">Terms & Privacy Policy</a>.</p></main>`,
+
+  // Hidden staff entry — reachable only by typing #/staff-login or clicking the tiny footer link.
+  'staff-login': () => `<main style="display:flex;flex-direction:column;justify-content:center;text-align:center;gap:14px"><div style="font-size:48px;color:var(--o)" aria-hidden="true">✦</div><h2>Staff sign-in</h2><p class="mut">Guruji and administrators only.</p>
+<button class="pri" data-a="staff" data-v="Guruji portal">Guruji portal</button>
+<button class="sec" data-a="staff" data-v="Admin portal">Admin portal</button>
+<button class="out" data-a="go" data-v="login" style="font-size:12px;width:auto;margin:6px auto">← Back to customer sign-in</button></main>`,
 
   home: () => {
     const c = latest(V.list || []);
@@ -240,12 +246,117 @@ function adm() {
 function render() {
   const sp = app.querySelector('#splash');
   app.className = ['rhome', 'rcase', 'ahome'].includes(S.screen) ? 'wide' : '';
-  app.innerHTML = '<div id="toast" role="status" aria-live="polite"></div>' + S_[S.screen]();
+  // On desktop, the logged-out login screen becomes a full-width landing page.
+  const showLanding = (S.screen === 'login' || S.screen === 'staff-login') && !ME;
+  document.body.classList.toggle('landing', showLanding);
+  app.innerHTML = '<div id="toast" role="status" aria-live="polite"></div>' +
+    (showLanding ? landingHtml() : '') + S_[S.screen]();
   if (sp) app.append(sp);
   const m = app.querySelector('main');
   if (m && !RM) m.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
   document.documentElement.lang = S.l == 'te' ? 'te' : 'en';
   AFTER[S.screen]?.();
+}
+
+// Desktop landing — hidden on mobile via CSS. Content is purely marketing + nav;
+// the real sign-in happens through the centered mobile shell below.
+function landingHtml() {
+  return `<div class="web-wrap">
+    <header class="web-header">
+      <div class="brand"><span aria-hidden="true">✦</span> GURUJI</div>
+      <nav class="web-nav">
+        <a href="#web-how">How it works</a>
+        <a href="#web-topics">Topics</a>
+        <a href="#web-testimonials">Reviews</a>
+        <a href="#web-pricing">Pricing</a>
+      </nav>
+      <div class="web-actions">
+        <button class="sec" data-a="scroll" data-v="web-signin">Sign in</button>
+        <button class="pri" data-a="scroll" data-v="web-signin">Book a consultation</button>
+      </div>
+    </header>
+    <section class="web-hero">
+      <div>
+        <span class="tagline">PALMISTRY • GUIDANCE</span>
+        <h1>Personal palmistry consultation, with a real expert.</h1>
+        <p class="lede">Book a 30-minute 1:1 session with Guruji. Share photos of your palm, ask what matters to you, and get a written report in English or Telugu.</p>
+        <div class="hero-ctas">
+          <button class="pri" data-a="scroll" data-v="web-signin">Book your consultation</button>
+          <button class="out" data-a="scroll" data-v="web-how" style="width:auto;padding:14px 26px">How it works</button>
+        </div>
+        <div class="trust-row">
+          <div><b>★ 4.9</b>Customer rating</div>
+          <div><b>10,000+</b>Consultations</div>
+          <div><b>2</b>English & Telugu</div>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">${palmSvg({ star: true, lineColor: '#FFC79A' })}</div>
+    </section>
+
+    <section class="web-section" id="web-how">
+      <h2>How it works</h2>
+      <p class="sub">Four simple steps between you and your reading.</p>
+      <div class="steps-grid">
+        <div class="step-tile"><div class="num">1</div><h3>Book a slot</h3><p>Pick a time that suits you. Secure payment through PayU.</p></div>
+        <div class="step-tile"><div class="num">2</div><h3>Share details</h3><p>Your questions, your palm photos — stored privately.</p></div>
+        <div class="step-tile"><div class="num">3</div><h3>Meet Guruji</h3><p>A 30-minute 1:1 session over chat and video.</p></div>
+        <div class="step-tile"><div class="num">4</div><h3>Your report</h3><p>Guidance written for you, download as PDF.</p></div>
+      </div>
+    </section>
+
+    <section class="web-section" id="web-topics">
+      <h2>What people ask about</h2>
+      <p class="sub">Every consultation is personal — these are the most common threads.</p>
+      <div class="topic-grid">
+        ${['Career & work', 'Business decisions', 'Marriage & relationships', 'Family life', 'Health & wellbeing', 'General guidance'].map(x => `<div class="topic-tile" data-a="scroll" data-v="web-signin">${x}</div>`).join('')}
+      </div>
+    </section>
+
+    <section class="web-section" id="web-testimonials">
+      <h2>What customers say</h2>
+      <p class="sub">A few recent words from our consultations.</p>
+      <div class="testimonial-grid">
+        <div class="testimonial"><div class="stars">★★★★★</div><p>"Guruji was patient and spoke exactly to what I was going through at work. The report was a lovely surprise."</p><div class="who">— Ananya, Hyderabad</div></div>
+        <div class="testimonial"><div class="stars">★★★★★</div><p>"The Telugu option meant my mother could sit with me during the session. We both felt heard."</p><div class="who">— Ravi, Vijayawada</div></div>
+        <div class="testimonial"><div class="stars">★★★★★</div><p>"I didn't expect such thoughtful guidance in half an hour. The written report is something I keep coming back to."</p><div class="who">— Priya, Bengaluru</div></div>
+      </div>
+    </section>
+
+    <section class="web-section" id="web-pricing">
+      <div class="web-cta-banner">
+        <h2>₹${CFG.price || 799} for a complete consultation</h2>
+        <p>30 minutes with Guruji, a written report in your language, and photos stored privately.</p>
+        <button class="pri" data-a="scroll" data-v="web-signin">Book your consultation</button>
+      </div>
+    </section>
+
+    <div id="web-signin" class="web-section" style="padding-top:20px"></div>
+
+    <footer class="web-footer">
+      <div>© Guruji Palmistry · <a href="#" data-a="terms">Terms & Privacy</a> · <a href="#" data-a="help">Help</a></div>
+      <div class="foot-staff"><a href="#/staff-login">Staff sign-in</a></div>
+    </footer>
+  </div>`;
+}
+
+// Palmistry palm — reused in both the splash and the hero art.
+function palmSvg({ star, lineColor }) {
+  const l = lineColor || '#FFC79A';
+  return `<svg class="palm" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="pg" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#FF6F00"/><stop offset="1" stop-color="#FF8A3A"/>
+      </linearGradient>
+    </defs>
+    <!-- Palm outline: thumb on the left, four fingers above, wrist at the bottom -->
+    <path class="outline" fill="none" stroke="url(#pg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M58,230 Q44,200 40,170 Q22,150 26,124 Q28,108 44,110 Q50,98 56,96 L62,54 Q64,42 76,42 Q88,42 90,54 L90,92 L100,92 L100,38 Q102,26 114,26 Q126,26 128,38 L128,92 L138,92 L138,50 Q140,38 152,38 Q164,38 166,52 L166,92 L174,92 L174,66 Q176,54 188,54 Q200,54 202,66 L202,106 Q206,140 196,180 Q190,210 180,230 Z"/>
+    <!-- Three main palm lines + fate line -->
+    <path class="line life"  fill="none" stroke="${l}" stroke-width="1.6" stroke-linecap="round" d="M90,104 Q66,138 72,186 Q74,210 90,224"/>
+    <path class="line heart" fill="none" stroke="${l}" stroke-width="1.6" stroke-linecap="round" d="M60,124 Q104,118 150,122 Q174,124 186,132"/>
+    <path class="line head"  fill="none" stroke="${l}" stroke-width="1.6" stroke-linecap="round" d="M66,146 Q110,140 158,144 Q180,146 190,154"/>
+    <path class="line fate"  fill="none" stroke="${l}" stroke-width="1.6" stroke-linecap="round" d="M130,228 Q126,186 130,144 Q134,118 142,100"/>
+    ${star ? '<text class="star" x="100" y="24" font-size="22" text-anchor="middle">✦</text>' : ''}
+  </svg>`;
 }
 const AFTER = {
   login() { if (CFG.googleClientId) loadScript('https://accounts.google.com/gsi/client').then(() => {
@@ -312,6 +423,13 @@ function postToPayU({ action, fields }) {
 const A = {
   go(e) { return go(e.dataset.v, e.dataset.arg); },
   close(e) { e.closest('.ov').remove(); },
+  scroll(e) {
+    // Scroll a landing-page anchor into view, then shift focus to the sign-in card
+    // in the mobile shell at the bottom of the landing so form inputs get attention.
+    const el = document.getElementById(e.dataset.v);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { const btn = document.querySelector('main [data-a="emaillogin"], main [data-a="emailregister"]'); if (btn) btn.focus(); }, 500);
+  },
   lang() { S.l = S.l == 'en' ? 'te' : 'en'; store.set('lang', S.l); render(); },
   terms() { sheet(`<h3>Terms & Privacy</h3><p class="mut" style="margin:8px 0">We use your details and palm photos only to prepare your consultation. Photos are visible only to you, your assigned Guruji and administrators. Readings are traditional guidance, not professional advice. Write to ${h(CFG.supportEmail)} to have your data deleted.</p>${closeBtn()}`); },
   help() { sheet(`<h3>Help & support</h3><p style="margin:8px 0">Email <a href="mailto:${h(CFG.supportEmail)}" style="color:var(--r)">${h(CFG.supportEmail)}</a></p>${closeBtn()}`); },
@@ -485,17 +603,35 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.querySelector('.ov:last-of-type')?.remove();
 });
 
+const SPLASH_MSGS = {
+  en: ['Tracing the lines of destiny…', 'Reading your lifeline…', 'Consulting the stars…', 'Preparing your consultation…'],
+  te: ['విధి రేఖలను చదువుతున్నాం…', 'జీవన రేఖను చూస్తున్నాం…', 'నక్షత్రాలతో సంప్రదింపు…', 'మీ కన్సల్టేషన్‌ను సిద్ధం చేస్తున్నాం…'],
+};
 function splash() {
   try { if (sessionStorage.getItem('gjIntro')) return; } catch {}
   const sp = document.createElement('div'); sp.id = 'splash';
-  sp.innerHTML = '<video autoplay muted playsinline poster="/splash.jpg" src="/splash.mp4"></video><b>GURUJI</b><small>A MOMENT OF CLARITY</small><button id="sk">Skip</button>';
+  sp.innerHTML = `<div class="glow"></div><div class="palm-wrap">${palmSvg({ star: true, lineColor: '#FFC79A' })}</div><b>GURUJI</b><small id="splash-msg"></small><button id="sk">Skip</button>`;
   app.append(sp);
+  const msgs = SPLASH_MSGS[S.l] || SPLASH_MSGS.en;
+  const msgEl = sp.querySelector('#splash-msg');
+  let mi = 0;
+  msgEl.textContent = msgs[0];
+  const cycler = setInterval(() => {
+    mi = (mi + 1) % msgs.length;
+    msgEl.classList.remove('swap'); void msgEl.offsetWidth;    // restart animation
+    msgEl.classList.add('swap');
+    msgEl.textContent = msgs[mi];
+  }, 1300);
   let done = 0;
-  const end = () => { if (done) return; done = 1; try { sessionStorage.setItem('gjIntro', 1); } catch {} sp.style.opacity = 0; setTimeout(() => sp.remove(), 600); };
-  const v = sp.querySelector('video');
-  v.onerror = () => v.replaceWith(Object.assign(document.createElement('div'), { style: 'height:100%;background:linear-gradient(160deg,#A81919,#000)' }));
-  v.play?.().catch(() => {});
-  setTimeout(end, 4000); sp.querySelector('#sk').onclick = end;
+  const end = () => {
+    if (done) return; done = 1;
+    clearInterval(cycler);
+    try { sessionStorage.setItem('gjIntro', 1); } catch {}
+    sp.style.opacity = 0;
+    setTimeout(() => sp.remove(), 600);
+  };
+  setTimeout(end, 4500);
+  sp.querySelector('#sk').onclick = end;
 }
 (async function boot() {
   try { [CFG, ME] = await Promise.all([api('GET', '/config'), api('GET', '/auth/me').then(r => r.user)]); }
