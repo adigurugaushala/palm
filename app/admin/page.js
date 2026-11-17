@@ -32,7 +32,7 @@ function Dashboard() {
 
       <div className="kpi-grid">
         {kpis.map(([l, v, ic, href]) => {
-          const inner = <><Icon name={ic} size={20} style={{ color: 'var(--gold)' }} /><div className="v" style={{ marginTop: 10 }}>{v}</div><div className="l">{l}</div></>;
+          const inner = <><Icon name={ic} size={20} style={{ color: 'var(--orange)' }} /><div className="v" style={{ marginTop: 10 }}>{v}</div><div className="l">{l}</div></>;
           return href ? <Link key={l} href={href} className="card kpi" style={{ textDecoration: 'none' }}>{inner}</Link> : <div key={l} className="card kpi">{inner}</div>;
         })}
       </div>

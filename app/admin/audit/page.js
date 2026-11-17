@@ -8,7 +8,7 @@ import { fmtStamp } from '@/lib/format';
 const LABELS = {
   'order.assign': 'Assigned a booking', 'settings.update': 'Changed booking settings', 'staff.add': 'Added a team member',
   'payment.refund.request': 'Requested a refund', 'payment.refund.confirm': 'Confirmed a refund', 'review.approved': 'Published a review',
-  'review.hidden': 'Hid a review', 'review.pending': 'Moved a review to pending', 'case.approve': 'Published a report',
+  'review.hidden': 'Hid a review', 'review.pending': 'Moved a review to pending', 'case.approve': 'Sent the report to the customer',
   'case.return': 'Returned a case to the customer', 'case.reject': 'Rejected a case', 'case.schedule': 'Scheduled a session',
   'case.complete': 'Marked a session complete', 'case.claim': 'Claimed a case', 'staff.login': 'Signed in to the workspace',
   'payu.callback.invalid': 'Rejected a PayU callback (failed verification)', 'payu.webhook.badhash': 'Rejected a PayU webhook (bad signature)',

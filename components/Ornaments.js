@@ -1,9 +1,9 @@
 // Heritage ornaments drawn in SVG: the brand emblem, a generative mandala/yantra,
-// a constellation field and a fine border motif. All line-art in antique gold.
+// a constellation field and a fine border motif. All line-art in brand orange.
 
 const range = n => Array.from({ length: n }, (_, i) => i);
 
-export function BrandMark({ size = 30, color = 'var(--gold)' }) {
+export function BrandMark({ size = 30, color = 'var(--orange)' }) {
   return (
     <svg viewBox="-12 -12 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke={color} strokeWidth="0.9">
       <circle r="11" />
@@ -24,7 +24,7 @@ export function Wordmark({ light = false, size = 22 }) {
 
 // Concentric mandala built from lotus petals, a dotted ring and an eight-point yantra.
 // Each ring is its own <g> so callers can rotate rings independently.
-export function Mandala({ size = 420, color = 'var(--gold)', className = '', strokeWidth = 0.6, detail = 'full' }) {
+export function Mandala({ size = 420, color = 'var(--orange)', className = '', strokeWidth = 0.6, detail = 'full' }) {
   const full = detail === 'full';
   return (
     <svg viewBox="-100 -100 200 200" width={size} height={size} className={`mandala ${className}`} aria-hidden="true"
@@ -65,7 +65,7 @@ export function Mandala({ size = 420, color = 'var(--gold)', className = '', str
 // A sparse constellation field: fixed coordinates so server and client render identically.
 const STARS = [[8, 14], [16, 9], [24, 17], [31, 11], [14, 30], [6, 42], [21, 46], [88, 12], [80, 20], [93, 28], [84, 37], [72, 9], [90, 58], [78, 66], [94, 80], [10, 74], [18, 84], [6, 92]];
 const LINKS = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [7, 8], [8, 9], [9, 10], [7, 11], [12, 13], [13, 14], [15, 16], [16, 17]];
-export function Constellations({ className = '', color = 'var(--gold)' }) {
+export function Constellations({ className = '', color = 'var(--orange)' }) {
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" className={`constellations ${className}`} aria-hidden="true">
       {LINKS.map(([a, b], i) => (
@@ -77,7 +77,7 @@ export function Constellations({ className = '', color = 'var(--gold)' }) {
 }
 
 // Thin ornamental divider: line, small lotus, line.
-export function Divider({ color = 'var(--gold)', width = 180 }) {
+export function Divider({ color = 'var(--orange)', width = 180 }) {
   return (
     <svg viewBox="0 0 180 14" width={width} height={(width / 180) * 14} className="divider" aria-hidden="true" fill="none" stroke={color} strokeWidth="0.8">
       <path d="M0 7H72M108 7H180" strokeOpacity="0.7" />
@@ -90,7 +90,7 @@ export function Divider({ color = 'var(--gold)', width = 180 }) {
 }
 
 // Corner ornament for framed panels (rotate for each corner).
-export function Corner({ className = '', color = 'var(--gold)' }) {
+export function Corner({ className = '', color = 'var(--orange)' }) {
   return (
     <svg viewBox="0 0 40 40" className={`corner ${className}`} aria-hidden="true" fill="none" stroke={color} strokeWidth="0.8">
       <path d="M2 38V8a6 6 0 0 1 6-6h30" />

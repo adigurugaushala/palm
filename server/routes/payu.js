@@ -4,6 +4,7 @@ const { wrap } = require('../util');
 const cfg = require('../config');
 const payu = require('../payu');
 const { markPaid, markFailed, findBooking } = require('./bookings');
+const commerce = require('./commerce');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: true, limit: '64kb' });
@@ -20,6 +21,11 @@ function redirectHome(res, hash) {
 async function handleCallback(req, res, kind) {
   if (!cfg.payu) return redirectHome(res, '/#/failed');
   const body = req.body || {};
+  if (commerce.isOrderCallback(body)) {
+    const { order, ok } = await commerce.settleOrder(body);
+    const id = order ? order.orderId : encodeURIComponent(body.udf1 || '');
+    return res.redirect(303, `${cfg.appBaseUrl}/orders/${id}/${ok ? 'paid' : 'failed'}`);
+  }
   const bookingId = body.udf1 || '';
   const okHash = payu.verifyResponseHash(cfg.payu, body);
   const payment = await Payment.findOne({ txnid: body.txnid });
@@ -43,6 +49,14 @@ router.post('/payu/failure', form, wrap((req, res) => handleCallback(req, res, '
 router.post('/payu/webhook', form, wrap(async (req, res) => {
   if (!cfg.payu) return res.status(404).end();
   const body = req.body || {};
+  if (commerce.isOrderCallback(body)) {
+    if (!payu.verifyResponseHash(cfg.payu, body)) {
+      await Audit.create({ action: 'payu.webhook.badhash', target: body.txnid || '' });
+      return res.status(400).json({ ok: false });
+    }
+    const { ok } = await commerce.settleOrder(body, { fromWebhook: true });
+    return res.json({ ok: true, paid: ok });
+  }
   if (!payu.verifyResponseHash(cfg.payu, body)) {
     await Audit.create({ action: 'payu.webhook.badhash', target: body.txnid || '' });
     return res.status(400).json({ ok: false });

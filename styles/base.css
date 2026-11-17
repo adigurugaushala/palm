@@ -15,7 +15,7 @@ body {
 img, svg, video { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 2px; }
+:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; border-radius: 2px; }
 ::selection { background: var(--burgundy); color: var(--ivory); }
 
 h1, h2, h3, .display {
@@ -38,9 +38,9 @@ em, .italic { font-style: italic; }
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--orange);
 }
-.eyebrow.on-ivory { color: #9C7A35; }  /* darker gold for contrast on light backgrounds */
+.eyebrow.on-ivory { color: #FF6F00; }  /* darker gold for contrast on light backgrounds */
 .muted { color: var(--ink-3); font-size: var(--fs-sm); }
 .small { font-size: var(--fs-sm); }
 .mono { font-variant-numeric: tabular-nums; }
@@ -54,7 +54,7 @@ em, .italic { font-style: italic; }
 .grow { flex: 1; min-width: 0; }
 
 .rule { height: 1px; background: var(--line); border: 0; }
-.rule.gold { background: linear-gradient(90deg, transparent, var(--gold-hair), transparent); }
+.rule.gold { background: linear-gradient(90deg, transparent, var(--orange-hair), transparent); }
 
 /* Telugu text renders larger in the same em — keep its line height comfortable. */
 :lang(te) body, :lang(te) p { line-height: 1.75; }

@@ -9,6 +9,9 @@ import { homeFor } from '@/lib/api';
 // Anchor links work on the landing page; elsewhere they point back to it.
 const anchor = (onHome, id) => (onHome ? `#${id}` : `/#${id}`);
 
+// Pages reached from the navigation: learning, services and donations.
+const PAGE_LINKS = [['/courses', 'Courses'], ['/services', 'Services'], ['/donate', 'Donate']];
+
 export function SiteNav({ onHome = false, showReviews = false }) {
   const { t, lang, setLang, me } = useApp();
   const [scrolled, setScrolled] = useState(false);
@@ -38,6 +41,7 @@ export function SiteNav({ onHome = false, showReviews = false }) {
           </Link>
           <nav className="links" aria-label="Primary">
             {links.map(([id, label]) => <a key={id} href={anchor(onHome, id)} data-scroll>{label}</a>)}
+            {PAGE_LINKS.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
           </nav>
           <div className="actions">
             <button className="lang-btn" onClick={() => setLang(lang === 'en' ? 'te' : 'en')} aria-label="Switch language">{t('language')}</button>
@@ -56,6 +60,7 @@ export function SiteNav({ onHome = false, showReviews = false }) {
           </div>
           <nav aria-label="Mobile">
             {links.map(([id, label]) => <a key={id} href={anchor(onHome, id)} data-scroll onClick={() => setOpen(false)}>{label}</a>)}
+            {PAGE_LINKS.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)}>{label}</Link>)}
           </nav>
           <div className="foot">
             <Link href="/book" className="btn gold block" onClick={() => setOpen(false)}>{t('bookYour')}</Link>
@@ -95,6 +100,9 @@ export function SiteFooter({ onHome = false }) {
               <li><Link href="/login">{t('signIn')}</Link></li>
               <li><Link href="/register">Create an account</Link></li>
               <li><Link href="/book">{t('book')}</Link></li>
+              <li><Link href="/courses">Courses</Link></li>
+              <li><Link href="/services">Services</Link></li>
+              <li><Link href="/donate">Donate</Link></li>
             </ul>
           </div>
           <div className="footer-col">

@@ -8,6 +8,7 @@ const { router: authRouter, loadUser, requireUser } = require('./auth');
 const bookings = require('./routes/bookings');
 const payu = require('./routes/payu');
 const reviews = require('./routes/reviews');
+const commerce = require('./routes/commerce');
 const { staff, admin } = require('./routes/staff');
 
 // The Express app owns /api; everything else is rendered by Next.js (see start()).
@@ -35,6 +36,8 @@ function buildApi() {
   app.use('/api/admin', requireUser('admin'), reviews.admin);
   app.use('/api/admin', admin);
   app.use('/api', reviews.router);
+  app.use('/api/admin', requireUser('admin'), commerce.admin);
+  app.use('/api', commerce.router);
   app.use('/api', bookings.router);
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 

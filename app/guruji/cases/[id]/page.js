@@ -145,7 +145,7 @@ function Workspace() {
               <textarea className="input" rows={14} value={notes} onChange={onNotes} disabled={!mineOrAdmin} aria-label="Report text"
                 placeholder={'Write the reading in plain paragraphs.\n\nObservations — what you see in the hand and lines.\nInterpretation — what that traditionally indicates for their questions.\nGuidance — your recommendations.'} />
             )}
-            <p className="muted" style={{ marginTop: 8 }}>{words} words · Separate paragraphs with a blank line. {c.reportPublishedAt ? `Published ${fmtStamp(c.reportPublishedAt)}.` : 'The customer sees this only after you publish.'}</p>
+            <p className="muted" style={{ marginTop: 8 }}>{words} words · Separate paragraphs with a blank line. {c.reportPublishedAt ? `Published ${fmtStamp(c.reportPublishedAt)}.` : 'The customer sees this only after you send it.'}</p>
           </section>
           {mineOrAdmin && (
             <section className="card">
@@ -158,7 +158,14 @@ function Workspace() {
                 <button className="btn danger" disabled={c.status >= 7} onClick={() => { setReason('Please upload clearer palm photographs in bright, even light.'); setDialog('return'); }}>Return to customer</button>
                 <button className="btn danger" disabled={c.status >= 7} onClick={() => { setReason(''); setDialog('reject'); }}>Reject</button>
               </div>
-              <button className="btn block" style={{ marginTop: 14 }} disabled={!notes.trim()} onClick={() => setDialog('approve')}><Icon name="document" />{c.status >= 7 ? 'Update published report' : 'Approve & publish report'}</button>
+              <div className="send-steps">
+                <p className="small muted">After the consultation: preview the PDF, check it, then send it to the customer yourself. Nothing is sent automatically.</p>
+                <div className="action-bar" style={{ marginTop: 10 }}>
+                  <button className="btn outline" disabled={c.status < 6 || !notes.trim()} onClick={() => window.open(`/api/bookings/${id}/report.pdf`, '_blank', 'noopener')}><Icon name="document" />Preview PDF</button>
+                  <button className="btn block" disabled={!notes.trim() || c.status < 6} onClick={() => setDialog('approve')}><Icon name="chat" />{c.status >= 7 ? 'Send updated report' : 'Send to customer'}</button>
+                </div>
+                {c.status < 6 && <p className="small muted" style={{ marginTop: 8 }}>The PDF can be previewed once the consultation is marked complete.</p>}
+              </div>
             </section>
           )}
         </div>
@@ -173,9 +180,9 @@ function Workspace() {
         </Modal>
       )}
       {dialog === 'approve' && (
-        <Modal title={c.status >= 7 ? 'Update the published report?' : 'Publish this report?'} onClose={() => setDialog(null)}>
-          <p>The customer will be able to read the report and download it as a PDF immediately. You can still edit it afterwards.</p>
-          <div className="form-foot"><button className="btn ghost" onClick={() => setDialog(null)}>Keep editing</button><button className={`btn ${busy ? 'busy' : ''}`} onClick={() => act('approve', 'Report published')}>Publish</button></div>
+        <Modal title={c.status >= 7 ? 'Send the updated report?' : 'Send this report to the customer?'} onClose={() => setDialog(null)}>
+          <p>The customer will see the report and can download the PDF from their account. This only happens when you press Send.</p>
+          <div className="form-foot"><button className="btn ghost" onClick={() => setDialog(null)}>Keep editing</button><button className={`btn ${busy ? 'busy' : ''}`} onClick={() => act('approve', 'Report sent to the customer')}>Send</button></div>
         </Modal>
       )}
     </>

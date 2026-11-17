@@ -8,6 +8,7 @@ const P = {
   surya: <><circle cx="12" cy="12" r="3.6" /><path d="M12 2.5v2.8M12 18.7v2.8M2.5 12h2.8M18.7 12h2.8M5.3 5.3l2 2M16.7 16.7l2 2M5.3 18.7l2-2M16.7 7.3l2-2" /></>,
   yantra: <><circle cx="12" cy="12" r="9" /><path d="M12 4.6l6.4 11.1H5.6Z" /><path d="M12 19.4L5.6 8.3h12.8Z" /><circle cx="12" cy="12" r="1" /></>,
   constellation: <><path d="M4.5 17.5l4.5-5.5l4.5 2.5L19 6" /><circle cx="4.5" cy="17.5" r="1.3" /><circle cx="9" cy="12" r="1.3" /><circle cx="13.5" cy="14.5" r="1.3" /><circle cx="19" cy="6" r="1.3" /><path d="M17 15.5l.6 1.4l1.4.6l-1.4.6l-.6 1.4l-.6-1.4l-1.4-.6l1.4-.6Z" /></>,
+  heart: <><path d="M12 19.5s-7-4.3-7-9.4A3.7 3.7 0 0 1 12 7.6a3.7 3.7 0 0 1 7 2.5c0 5.1-7 9.4-7 9.4Z" /></>,
   palm: <><path d="M8 20.5c-1.8-1.6-3.6-4-4.2-6.3c-.4-1.4.9-2.1 1.8-1.2L8 15.3V5.8a1.2 1.2 0 0 1 2.4 0v5.4V4.4a1.2 1.2 0 0 1 2.4 0v6.8V5.4a1.2 1.2 0 0 1 2.4 0v6.2V7.6a1.2 1.2 0 0 1 2.4 0v6.6c0 3.4-1.8 5.6-4.4 6.3" /><path d="M10 16.2c1.4-.4 3-.4 4.6.3" /></>,
   mandala: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.2" /><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.9 2.9M15.5 15.5l2.9 2.9M5.6 18.4l2.9-2.9M15.5 8.5l2.9-2.9" /></>,
 
@@ -74,7 +75,7 @@ export function Rating({ value, size = 12 }) {
     <span className="rating" aria-label={`${value} out of 5`}>
       {[1, 2, 3, 4, 5].map(i => (
         <svg key={i} viewBox="0 0 12 12" width={size} height={size} aria-hidden="true">
-          <path d="M6 .8L11.2 6L6 11.2L.8 6Z" fill={i <= value ? 'var(--gold)' : 'none'} stroke="var(--gold)" strokeWidth="1" />
+          <path d="M6 .8L11.2 6L6 11.2L.8 6Z" fill={i <= value ? 'var(--orange)' : 'none'} stroke="var(--orange)" strokeWidth="1" />
         </svg>
       ))}
     </span>

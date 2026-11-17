@@ -38,11 +38,11 @@ export default function PalmDiagram({ tone = 'dark', animate = false, highlight 
   const ref = useRef(null);
   const dark = tone === 'dark';
   const c = {
-    outline: dark ? 'rgba(248,242,233,0.88)' : 'var(--burgundy)',
-    crease: dark ? 'rgba(248,242,233,0.38)' : 'rgba(123,17,19,0.35)',
-    line: dark ? 'var(--gold-light)' : 'var(--gold)',
-    label: dark ? 'var(--gold-light)' : '#8A6A2B',
-    leader: dark ? 'rgba(226,197,138,0.55)' : 'rgba(156,122,53,0.55)',
+    outline: dark ? 'rgba(255, 255, 255,0.88)' : 'var(--burgundy)',
+    crease: dark ? 'rgba(255, 255, 255,0.38)' : 'rgba(152, 21, 21,0.35)',
+    line: dark ? 'var(--orange-light)' : 'var(--orange)',
+    label: dark ? 'var(--orange-light)' : '#D85A00',
+    leader: dark ? 'rgba(255, 178, 122,0.55)' : 'rgba(255, 111, 0,0.55)',
   };
 
   useEffect(() => {

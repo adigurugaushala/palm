@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CustomerShell } from '@/components/Shells';
 import { useApp, useAction, Loader } from '@/components/Providers';
 import { BookingStepper } from '@/components/Portal';
+import MonthCalendar from '@/components/MonthCalendar';
 import Icon from '@/components/Icon';
 import { api } from '@/lib/api';
 import { dayParts, fmtDayLong, inr } from '@/lib/format';
@@ -14,7 +15,7 @@ function Book() {
   const params = useSearchParams();
   const run = useAction();
   const [days, setDays] = useState(null);
-  const [di, setDi] = useState(0);
+  const [selDate, setSelDate] = useState(null);
   const [slot, setSlot] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -26,8 +27,9 @@ function Book() {
   }, [params]);
 
   if (!days) return <Loader label="Finding available times…" />;
-  const day = days[di];
+  const day = days.find(d => d.date === selDate) || null;
   const openCount = d => d.slots.filter(s => s.available).length;
+  const nextOpen = days.find(d => openCount(d) > 0);
 
   const reserve = async () => {
     setBusy(true);
@@ -42,7 +44,7 @@ function Book() {
   const summary = (
     <div className="card summary">
       <h3>Your consultation</h3>
-      <div className="line"><span>Date</span><span>{fmtDayLong(day?.date)}</span></div>
+      <div className="line"><span>Date</span><span>{day ? fmtDayLong(day.date) : '—'}</span></div>
       <div className="line"><span>Time</span><span>{slot || '—'}</span></div>
       <div className="line"><span>Session</span><span>Length depends on your questions</span></div>
       <div className="line"><span>Consultation</span><span>{inr(cfg.base)}</span></div>
@@ -60,20 +62,16 @@ function Book() {
       <div className="layout-2">
         <div style={{ display: 'grid', gap: 20 }}>
           <section className="card">
-            <div className="card-title"><h3>Select a date</h3><span className="muted">India Standard Time</span></div>
+            <div className="card-title"><h3>Choose a date</h3><span className="muted">India Standard Time</span></div>
             {days.length ? (
-              <div className="date-strip" role="group" aria-label="Dates">
-                {days.map((d, i) => {
-                  const p = dayParts(d.date);
-                  const n = openCount(d);
-                  return (
-                    <button key={d.date} className="date-btn" aria-pressed={i === di} disabled={!n} onClick={() => { setDi(i); setSlot(null); }}>
-                      <span className="wd">{p.wd}</span><span className="d">{p.day}</span><span className="m">{p.mon}</span>
-                      <span className="n">{n ? `${n} open` : 'Full'}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <MonthCalendar days={days} selected={selDate} onSelect={d => { setSelDate(d); setSlot(null); }} />
+                {nextOpen && !day && (
+                  <button type="button" className="btn outline sm next-open" onClick={() => { setSelDate(nextOpen.date); setSlot(null); }}>
+                    <Icon name="calendar" />Jump to the next available date
+                  </button>
+                )}
+              </>
             ) : <p className="muted">No dates are open for booking right now. Please check back soon.</p>}
           </section>
           {day && (
@@ -93,7 +91,7 @@ function Book() {
         <aside className="side">{summary}</aside>
       </div>
       <div className="sticky-cta">
-        <div className="p">{inr(cfg.price)}<small>{slot ? `${dayParts(day.date).wd} ${dayParts(day.date).day} ${dayParts(day.date).mon} · ${slot}` : 'Choose a time'}</small></div>
+        <div className="p">{inr(cfg.price)}<small>{slot && day ? `${dayParts(day.date).wd} ${dayParts(day.date).day} ${dayParts(day.date).mon} · ${slot}` : day ? 'Choose a time' : 'Choose a date'}</small></div>
         <button className={`btn ${busy ? 'busy' : ''}`} disabled={!slot} onClick={reserve}>Continue</button>
       </div>
     </>

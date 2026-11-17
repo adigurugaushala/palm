@@ -333,7 +333,10 @@ router.get('/bookings/:id/report', requireUser(), wrap(async (req, res) => {
 
 router.get('/bookings/:id/report.pdf', requireUser(), wrap(async (req, res) => {
   const b = await loadOwned(req);
-  if (b.status < STATUS.REPORT) throw new HttpError(404, 'Report not ready yet');
+  // Customers get the PDF only after Guruji has sent the report. Guruji and admins can preview it
+  // from the moment the consultation is complete, so they can check the wording before sending.
+  const staffPreview = req.user.role !== 'customer' && b.status >= STATUS.COMPLETED;
+  if (b.status < STATUS.REPORT && !staffPreview) throw new HttpError(404, 'Report not ready yet');
   const reviewer = b.assignedGurujiId ? (await User.findById(b.assignedGurujiId).lean())?.name : 'Guruji';
   res.type('application/pdf').set('Content-Disposition', `attachment; filename="guruji-report-${b.bookingId}.pdf"`);
   renderReport({

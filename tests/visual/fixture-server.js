@@ -46,7 +46,7 @@ app.get('/api/reviews', (req, res) => res.json(process.env.NO_REVIEWS ? { review
     { id: '2', rating: 5, text: 'My mother joined the call in Telugu. The written report is something we both keep returning to.', name: 'Ravi', city: 'Vijayawada' },
     { id: '3', rating: 4, text: 'Calm, unhurried and private. I appreciated that my photographs were handled carefully.', name: 'Priya', city: 'Bengaluru' },
   ] }));
-app.get('/api/slots', (req, res) => res.json({ days: [1, 2, 3, 4, 5, 6, 7].map(n => ({ date: d(n), slots: ['10:00 AM', '11:30 AM', '04:00 PM', '06:30 PM'].map((time, i) => ({ time, available: (n + i) % 4 !== 1 })) })) }));
+app.get('/api/slots', (req, res) => res.json({ days: Array.from({ length: 30 }, (_, i) => i + 1).map(n => ({ date: d(n), slots: ['10:00 AM', '11:30 AM', '04:00 PM', '06:30 PM'].map((time, i) => ({ time, available: n % 7 === 3 ? false : (n + i) % 4 !== 1 })) })) }));
 app.get('/api/bookings', (req, res) => res.json({ bookings: BOOKINGS }));
 app.get('/api/bookings/:id', (req, res) => {
   const b = BOOKINGS.find(x => x.id === req.params.id) || (req.params.id === 'GJ-PENDING' ? mk('GJ-PENDING', -1) : req.params.id === 'GJ-NEW' ? mk('GJ-NEW', 0, { editable: true }) : null);
@@ -81,6 +81,35 @@ app.get('/api/admin/staff', (req, res) => res.json({ staff: [{ id: 'a1', name: '
 app.get('/api/admin/settings', (req, res) => res.json({ settings: { price: 799, gstPercent: 18, durationMin: 30, daysAhead: 7, slots: ['10:00 AM', '11:30 AM', '04:00 PM', '06:30 PM'], holdMinutes: 15 } }));
 app.get('/api/admin/reviews', (req, res) => res.json({ reviews: [{ id: '1', bookingId: 'GJ-31877', rating: 5, text: 'Guruji listened before he spoke.', name: 'Ananya', city: 'Hyderabad', status: 'approved', at: new Date().toISOString() }, { id: '4', bookingId: 'GJ-40011', rating: 4, text: 'Helpful and patient. Would have liked a longer session.', name: 'Sai', city: 'Guntur', status: 'pending', at: new Date().toISOString() }] }));
 app.get('/api/admin/audit', (req, res) => res.json({ entries: [{ at: new Date().toISOString(), action: 'case.approve', actor: 'guruji@example.com', target: 'GJ-31877', meta: {} }, { at: new Date().toISOString(), action: 'order.assign', actor: 'admin@example.com', target: 'GJ-48211', meta: { reviewerId: 'r1' } }, { at: new Date().toISOString(), action: 'settings.update', actor: 'admin@example.com', target: '', meta: { price: 799 } }] }));
+const PRODUCTS = [
+  { slug: 'foundations-of-palmistry', kind: 'course', title: 'Foundations of Palmistry', summary: 'Learn to read the major lines and mounts of the palm with confidence.', description: 'Six weekly live classes. You practise on sample palms and receive feedback from Guruji after each class.', price: 4999, durationText: '6 weeks · online, one live class a week', outcomes: ['Identify the principal lines', 'Read the mounts and their meanings', 'Practise on sample palms'], active: true, sort: 1 },
+  { slug: 'palm-reading-practitioner', kind: 'course', title: 'Palm Reading Practitioner', summary: 'A longer programme for people who want to read palms for others.', description: 'Twelve weeks with live sessions, case studies and a supervised reading.', price: 12999, durationText: '12 weeks · online with live sessions', outcomes: ['Full palm reading method', 'Case studies', 'Supervised practice readings'], active: true, sort: 2 },
+  { slug: 'detailed-palm-reading', kind: 'service', title: 'Detailed Palm Reading', summary: 'A longer reading with a written report.', description: 'A 45-minute video or audio reading. You receive a written report after the session.', price: 1499, durationText: '45 minutes, video or audio', outcomes: ['Written report', 'Question-led discussion'], active: true, sort: 1 },
+  { slug: 'muhurtham-guidance', kind: 'service', title: 'Muhurtham Guidance', summary: 'Auspicious dates for weddings, griha pravesh and new beginnings.', description: 'Share the dates you are considering and Guruji suggests auspicious timings.', price: 2100, durationText: 'Written guidance within 3 days', outcomes: ['Shortlist of auspicious dates', 'Short written explanation'], active: true, sort: 2 },
+];
+const ORDERS = [
+  { id: 'ORD-40113201', kind: 'course', title: 'Foundations of Palmistry', amount: 4999, status: 'paid', purpose: '', anonymous: false, productSlug: 'foundations-of-palmistry', fulfilment: 'new', paidAt: new Date(today.getTime() - 3 * 864e5).toISOString(), createdAt: new Date(today.getTime() - 3 * 864e5).toISOString() },
+  { id: 'ORD-40113877', kind: 'service', title: 'Detailed Palm Reading', amount: 1499, status: 'paid', purpose: '', anonymous: false, productSlug: 'detailed-palm-reading', fulfilment: 'contacted', paidAt: new Date(today.getTime() - 1 * 864e5).toISOString(), createdAt: new Date(today.getTime() - 1 * 864e5).toISOString() },
+  { id: 'ORD-40114020', kind: 'donation', title: 'Donation to Guruji', amount: 501, status: 'paid', purpose: 'Annadanam (community meals)', anonymous: false, productSlug: '', fulfilment: 'new', paidAt: new Date(today.getTime() - 5 * 864e5).toISOString(), createdAt: new Date(today.getTime() - 5 * 864e5).toISOString() },
+];
+app.get('/api/catalog', (req, res) => res.json({ products: PRODUCTS.filter(p => p.active && (!req.query.kind || p.kind === req.query.kind)) }));
+app.get('/api/catalog/:slug', (req, res) => {
+  const p = PRODUCTS.find(x => x.slug === req.params.slug && x.active);
+  if (!p) return res.status(404).json({ error: 'This course or service is not available' });
+  res.json({ product: p });
+});
+app.get('/api/donations/options', (req, res) => res.json({ purposes: ['General donation', 'Annadanam (community meals)', 'Education and scholarships', 'Temple and ashram support'], presets: [101, 501, 1100, 2100, 5100], min: 11, max: 500000 }));
+app.get('/api/orders', (req, res) => res.json({ orders: me(req)?.role === 'customer' ? ORDERS : [] }));
+app.get('/api/orders/:id', (req, res) => {
+  const o = ORDERS.find(x => x.id === req.params.id) || { ...ORDERS[0], id: req.params.id, status: 'created', paidAt: null };
+  res.json({ order: o });
+});
+app.get('/api/admin/catalog', (req, res) => res.json({ products: PRODUCTS.map(p => ({ ...p })).concat([{ ...PRODUCTS[0], slug: 'palm-draft', title: 'Draft: Hand Shapes', active: false, price: 999 }]) }));
+app.get('/api/admin/orders', (req, res) => {
+  const kind = req.query.kind;
+  const rows = ORDERS.map(o => ({ ...o, txnid: 'GJO1763' + o.id.slice(-4), mihpayid: '40399371553', customer: 'Ananya Rao', email: 'ananya@example.com', mobile: '9876543210', form: o.kind === 'service' ? { name: 'Ananya Rao', mobile: '9876543210', preferred: 'Weekday evenings', notes: 'Career change, and timing of a move abroad.' } : o.kind === 'donation' ? { donorName: 'Ananya' } : {} }));
+  res.json({ totals: { donations: 501, courses: 4999, services: 1499 }, orders: kind ? rows.filter(r => r.kind === kind) : rows });
+});
 app.all(/^\/api\/.*/, (req, res) => res.json({ ok: true }));
 
 (async () => {

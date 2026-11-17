@@ -105,6 +105,26 @@ Default `MEET_PROVIDER=public` uses the free `https://meet.jit.si`. Room IDs are
 
 The current public integration is fine for development and small traffic but has no application-side access control.
 
+## Learning, services and donations
+
+- **Learning & Courses** (`/courses`, `/courses/[slug]`, `/learning`): courses Guruji teaches. A customer enrols by paying through PayU; the order is marked paid only after the PayU hash and amount are verified.
+- **Services & Donations** (`/services`, `/services/[slug]`, `/donate`): paid spiritual and palmistry services (the customer fills a short form first) and donations to chosen purposes. Donation amounts are validated between the configured minimum and maximum.
+- **Orders** (`/orders/[id]/pay`, `/paid`, `/failed`) hold a receipt-style status for every commerce purchase. Shared PayU routing lives in `server/routes/commerce.js`, with `server/routes/payu.js` dispatching order callbacks to it.
+- **Admin** (`/admin/commerce`): add, edit, publish or unpublish courses and services; see donation, course and service totals; and mark paid service requests as received, contacted or completed.
+- Sample products are seeded as unpublished drafts. Publish them from admin before they appear on the site.
+
+## Booking calendar
+
+The booking page shows a month view (`MonthCalendar`) built from `/api/slots`. Dates are marked available, fully booked or not open, and the "next available date" button jumps to the first open day. The window defaults to 30 days for new installs (`daysAhead` in `server/db.js`); existing installs keep the value already stored in their settings.
+
+## Post-meeting workflow
+
+1. The customer pays, then uploads hand photos.
+2. Guruji accepts the case, and the meeting takes place in Jitsi.
+3. Guruji completes the meeting and writes the notes.
+4. The report is generated as a PDF from the current notes, so it always reflects the latest text. Guruji can preview it at `/api/bookings/:id/report.pdf` before sending.
+5. Guruji presses **Send to customer** (or **Send updated report**). Nothing is emailed automatically; the send is recorded in the audit log as "Sent the report to the customer", and the customer sees the report in their account.
+
 ## Security
 
 - Passwords: bcryptjs, cost 11.

@@ -22,7 +22,7 @@ export const metadata = {
   icons: { icon: '/emblem.svg' },
 };
 
-export const viewport = { themeColor: '#7B1113', width: 'device-width', initialScale: 1, viewportFit: 'cover' };
+export const viewport = { themeColor: '#981515', width: 'device-width', initialScale: 1, viewportFit: 'cover' };
 
 export default function RootLayout({ children }) {
   return (

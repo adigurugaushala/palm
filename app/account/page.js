@@ -86,6 +86,15 @@ function Dashboard() {
             ) : <p className="small">Your written report appears here once Guruji has published it.</p>}
           </div>
           <div className="card">
+            <div className="card-title"><h3>Learning, services &amp; giving</h3></div>
+            <div className="list-rows">
+              <Link href="/courses" className="list-row"><Icon name="document" /><span><span className="t">Courses</span><span className="s" style={{ display: 'block' }}>Learn palmistry step by step</span></span><Icon name="arrowRight" /></Link>
+              <Link href="/services" className="list-row"><Icon name="palm" /><span><span className="t">Services</span><span className="s" style={{ display: 'block' }}>Spiritual and palmistry services</span></span><Icon name="arrowRight" /></Link>
+              <Link href="/donate" className="list-row"><Icon name="heart" /><span><span className="t">Donate</span><span className="s" style={{ display: 'block' }}>Support Guruji&rsquo;s community work</span></span><Icon name="arrowRight" /></Link>
+            </div>
+            <Link href="/learning" className="link small" style={{ display: 'inline-block', marginTop: 12 }}>Your learning, orders and receipts</Link>
+          </div>
+          <div className="card">
             <div className="card-title"><h3>Need help?</h3></div>
             <p className="small">Questions about a booking, payment or your photographs — we&rsquo;re glad to help.</p>
             <div className="row wrap" style={{ marginTop: 14 }}>

@@ -40,7 +40,7 @@ function Paid() {
     <>
       <BookingStepper step={2} />
       <div className="result">
-        <div className="seal ok"><Mandala size={140} detail="lite" color="var(--gold)" /><Icon name="check" className="ic" strokeWidth={1.8} /></div>
+        <div className="seal ok"><Mandala size={140} detail="lite" color="var(--orange)" /><Icon name="check" className="ic" strokeWidth={1.8} /></div>
         <span className="eyebrow on-ivory">Payment confirmed</span>
         <h1>Your consultation is booked</h1>
         <p>Thank you. Next, tell Guruji a little about yourself and share photographs of your palms.</p>

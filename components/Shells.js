@@ -102,7 +102,7 @@ export const GURUJI_NAV = me => [
 
 export const ADMIN_NAV = [
   { title: 'Overview', items: [['/admin', 'chart', 'Dashboard']] },
-  { title: 'Operations', items: [['/admin/orders', 'list', 'Bookings'], ['/admin/customers', 'users', 'Customers'], ['/admin/payments', 'card', 'Payments'], ['/guruji', 'palm', 'Guruji workspace']] },
+  { title: 'Operations', items: [['/admin/orders', 'list', 'Bookings'], ['/admin/customers', 'users', 'Customers'], ['/admin/payments', 'card', 'Payments'], ['/admin/commerce', 'list', 'Learning & services'], ['/guruji', 'palm', 'Guruji workspace']] },
   { title: 'Management', items: [['/admin/team', 'user', 'Guruji team'], ['/admin/reviews', 'quote', 'Reviews'], ['/admin/settings', 'settings', 'Booking settings'], ['/admin/audit', 'audit', 'Audit log']] },
 ];
 
@@ -112,7 +112,7 @@ export function AuthLayout({ quote, children }) {
     <div className="auth">
       <div className="auth-art">
         <span className="frame" />
-        <Mandala size={700} color="var(--gold-light)" strokeWidth={0.45} />
+        <Mandala size={700} color="var(--orange-light)" strokeWidth={0.45} />
         <Link href="/" className="brand" style={{ position: 'relative' }}><BrandMark size={32} /><span className="wordmark" style={{ fontSize: 21, color: 'var(--ivory)' }}>GURUJI</span></Link>
         <blockquote>{quote}</blockquote>
         <span className="muted small">Private · Personal · Secure payment by PayU</span>

@@ -334,7 +334,7 @@ export function ReviewForm({ bookingId }) {
       <p className="small" style={{ marginBottom: 14 }}>Reviews are published after a short check, with your first name and city only.</p>
       <div className="field"><span className="label">Rating</span>
         <div className="rate-pick" role="group" aria-label="Rating">
-          {[1, 2, 3, 4, 5].map(n => <button type="button" key={n} aria-pressed={n <= rating} aria-label={`${n} of 5`} onClick={() => setRating(n)}><svg viewBox="0 0 12 12" width="16" height="16" aria-hidden="true"><path d="M6 .8L11.2 6L6 11.2L.8 6Z" fill={n <= rating ? 'var(--gold)' : 'none'} stroke="var(--gold)" /></svg></button>)}
+          {[1, 2, 3, 4, 5].map(n => <button type="button" key={n} aria-pressed={n <= rating} aria-label={`${n} of 5`} onClick={() => setRating(n)}><svg viewBox="0 0 12 12" width="16" height="16" aria-hidden="true"><path d="M6 .8L11.2 6L6 11.2L.8 6Z" fill={n <= rating ? 'var(--orange)' : 'none'} stroke="var(--orange)" /></svg></button>)}
         </div>
       </div>
       <div className="field"><label htmlFor="rv">Your words</label><textarea id="rv" className="input" value={text} onChange={e => setText(e.target.value)} maxLength={1200} required minLength={10} /></div>
@@ -366,7 +366,7 @@ export function BarChart({ data, valueKey, labelKey, height = 220, format = v =>
           </g>
         );
       })}
-      <defs><linearGradient id="barG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#971719" /><stop offset="1" stopColor="#7B1113" /></linearGradient></defs>
+      <defs><linearGradient id="barG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8A1212" /><stop offset="1" stopColor="#981515" /></linearGradient></defs>
     </svg>
   );
 }

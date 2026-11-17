@@ -1,40 +1,46 @@
 /* ──────────────────────────────────────────────────────────────
-   GURUJI design tokens — Indian heritage, editorial restraint.
-   Burgundy + ivory lead; antique gold is for ornament; saffron is accent only.
+   GURUJI design tokens — brand system from the existing site.
+   Primary red #981515 · dark red #8A1212 · CTA orange #FF6F00 ·
+   white page background · warm beige sections · dark text #242424.
+   No gold, purple, blue or green. Mandala and kundali ornament
+   are drawn in these same colours.
    ────────────────────────────────────────────────────────────── */
 :root {
-  /* Brand palette */
-  --burgundy: #7B1113;
-  --maroon: #971719;
-  --vermilion: #B51F1F;
-  --saffron: #E87512;
-  --gold: #C69A45;
-  --ivory: #F8F2E9;
-  --cream: #EFE4D8;
-  --charcoal: #241714;
+  /* Brand palette (source of truth) */
+  --burgundy: #981515;        /* primary red */
+  --maroon: #8A1212;          /* dark red */
+  --vermilion: #981515;
+  --orange: #FF6F00;          /* CTA orange and ornament accent */
+  --saffron: #FF6F00;
+  --gold: #FF6F00;            /* legacy name: ornament accent is orange now */
   --white: #FFFFFF;
+  --ivory: #FFFFFF;           /* page background is white */
+  --cream: #F6EEE6;           /* warm beige section background */
+  --charcoal: #242424;        /* dark text */
 
-  /* Derived tones (all mixed from the palette above) */
-  --burgundy-deep: #5A0C0E;
-  --burgundy-ink: #3A0A0B;
-  --gold-light: #E2C58A;
-  --gold-hair: rgba(198, 154, 69, 0.38);
-  --gold-faint: rgba(198, 154, 69, 0.14);
+  /* Derived tones */
+  --burgundy-deep: #6E0E0E;
+  --burgundy-ink: #5A0B0B;
+  --orange-light: #FFB27A;
+  --orange-deep: #D85A00;
+  --gold-light: #FFB27A;
+  --gold-hair: rgba(255, 111, 0, 0.38);
+  --gold-faint: rgba(255, 111, 0, 0.12);
   --ink: var(--charcoal);
-  --ink-2: #5B4740;          /* secondary text */
-  --ink-3: #8A766C;          /* tertiary / captions */
-  --line: #E4D6C4;           /* hairline borders on ivory */
-  --line-strong: #D2BFA8;
-  --surface: #FFFCF7;        /* raised cards on ivory */
-  --surface-2: #FBF6EE;
+  --ink-2: #4D4D4D;           /* secondary text */
+  --ink-3: #767676;           /* tertiary / captions */
+  --line: #EADFD4;            /* hairline borders on white */
+  --line-strong: #D6C6B6;
+  --surface: #FFFFFF;         /* raised cards */
+  --surface-2: #FBF7F3;       /* subtle warm surface */
 
-  /* Status (kept within the warm family) */
-  --ok: #3F6B3A;
-  --ok-bg: #EAF0E2;
-  --warn: #9A5B0E;
-  --warn-bg: #F7EAD5;
-  --bad: var(--vermilion);
-  --bad-bg: #F6E1DC;
+  /* Status (red and orange only) */
+  --ok: #D85A00;
+  --ok-bg: #FFF1E4;
+  --warn: #B34700;
+  --warn-bg: #FFF4EA;
+  --bad: var(--burgundy);
+  --bad-bg: #F8E6E6;
 
   /* Typography */
   --font-display: 'Cormorant Garamond', 'Noto Sans Telugu', Georgia, serif;
@@ -51,11 +57,17 @@
   /* Space, radius, elevation, motion */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px;
   --r-xs: 3px; --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-arch: 999px 999px 10px 10px;
-  --shadow-1: 0 1px 2px rgba(36, 23, 20, 0.05), 0 6px 18px -10px rgba(36, 23, 20, 0.18);
-  --shadow-2: 0 2px 6px rgba(36, 23, 20, 0.06), 0 22px 48px -24px rgba(58, 10, 11, 0.35);
+  --shadow-1: 0 1px 2px rgba(36, 36, 36, 0.05), 0 6px 18px -10px rgba(36, 36, 36, 0.16);
+  --shadow-2: 0 2px 6px rgba(36, 36, 36, 0.06), 0 22px 48px -24px rgba(138, 18, 18, 0.35);
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur: 240ms;
 
   --container: 1200px;
   --nav-h: 76px;
+}
+
+/* Orange tints used by badges, rules and hover states. */
+:root {
+  --orange-faint: rgba(255, 111, 0, 0.12);
+  --orange-hair: rgba(255, 111, 0, 0.38);
 }

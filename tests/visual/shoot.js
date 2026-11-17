@@ -19,6 +19,10 @@ const SCREENS = [
   ['admin', '/admin', 'admin'], ['admin', '/admin/orders', 'orders'], ['admin', '/admin/customers', 'customers'],
   ['admin', '/admin/payments', 'payments'], ['admin', '/admin/team', 'team'], ['admin', '/admin/reviews', 'reviews'],
   ['admin', '/admin/settings', 'settings'], ['admin', '/admin/audit', 'audit'],
+  ['guest', '/courses', 'courses'], ['guest', '/courses/foundations-of-palmistry', 'course'],
+  ['guest', '/services', 'services'], ['guest', '/services/detailed-palm-reading', 'service'],
+  ['guest', '/donate', 'donate'], ['guest', '/learning', 'learning'],
+  ['customer', '/orders/ORD-40113201/pay', 'order-pay'], ['admin', '/admin/commerce', 'commerce'],
 ];
 const WIDTHS = (process.env.WIDTHS || '1440,820,390').split(',').map(Number);
 

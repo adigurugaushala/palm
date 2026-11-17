@@ -94,7 +94,7 @@ export default function Home() {
             <div className="hero-art">
               <Mandala size={640} className="hero-orbit" strokeWidth={0.5} />
               <div className="arch">
-                <Mandala size={600} className="arch-mandala" color="var(--gold-light)" strokeWidth={0.45} />
+                <Mandala size={600} className="arch-mandala" color="var(--orange-light)" strokeWidth={0.45} />
                 <PalmDiagram tone="dark" animate />
               </div>
               <p className="arch-caption">Hasta rekha — the principal lines of the palm</p>
@@ -225,9 +225,9 @@ export default function Home() {
           <div className="container">
             <div className="pricing-panel" data-reveal>
               <span className="frame" /><span className="frame inner" />
-              <Corner className="tl" color="var(--gold-light)" /><Corner className="tr" color="var(--gold-light)" />
-              <Corner className="bl" color="var(--gold-light)" /><Corner className="br" color="var(--gold-light)" />
-              <Mandala size={520} className="bg-mandala" color="var(--gold-light)" />
+              <Corner className="tl" color="var(--orange-light)" /><Corner className="tr" color="var(--orange-light)" />
+              <Corner className="bl" color="var(--orange-light)" /><Corner className="br" color="var(--orange-light)" />
+              <Mandala size={520} className="bg-mandala" color="var(--orange-light)" />
               <div className="pricing-grid">
                 <div>
                   <span className="eyebrow">Pricing</span>

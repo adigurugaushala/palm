@@ -83,7 +83,7 @@ const SettingsSchema = new Schema({
   price: { type: Number, default: 799 },
   gstPercent: { type: Number, default: 18 },
   durationMin: { type: Number, default: 30 },
-  daysAhead: { type: Number, default: 7 },
+  daysAhead: { type: Number, default: 30 },
   slots: { type: [String], default: ['10:00 AM', '11:30 AM', '04:00 PM', '06:30 PM'] },
   holdMinutes: { type: Number, default: 15 },
 });
@@ -108,6 +108,42 @@ const ReviewSchema = new Schema({
   status: { type: String, enum: ['pending', 'approved', 'hidden'], default: 'pending', index: true },
 }, { timestamps: true });
 
+// Learning & services catalogue. Courses and services are listed on the site only when `active`.
+const ProductSchema = new Schema({
+  slug: { type: String, required: true, unique: true, index: true },
+  kind: { type: String, enum: ['course', 'service'], required: true, index: true },
+  title: { type: String, required: true, maxlength: 120 },
+  summary: { type: String, default: '', maxlength: 240 },
+  description: { type: String, default: '', maxlength: 4000 },
+  price: { type: Number, required: true, min: 1 },
+  durationText: { type: String, default: '', maxlength: 120 },
+  outcomes: { type: [String], default: [] },
+  active: { type: Boolean, default: false },
+  sort: { type: Number, default: 0 },
+}, { timestamps: true });
+
+// Orders cover course enrolments, service requests and donations. Payment goes through PayU
+// exactly like bookings, and an order only counts as paid after the PayU response is verified.
+const OrderSchema = new Schema({
+  orderId: { type: String, required: true, unique: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  kind: { type: String, enum: ['course', 'service', 'donation'], required: true, index: true },
+  productSlug: { type: String, default: '' },
+  title: { type: String, required: true },
+  amount: { type: Number, required: true, min: 1 },
+  purpose: { type: String, default: '' },
+  anonymous: { type: Boolean, default: false },
+  form: { type: Object, default: () => ({}) },
+  status: { type: String, enum: ['created', 'paid', 'failed', 'refund_pending', 'refunded'], default: 'created', index: true },
+  provider: { type: String, enum: ['payu', 'demo'], required: true },
+  txnid: { type: String, default: '', index: true },
+  mihpayid: { type: String, default: '' },
+  mode: { type: String, default: '' },
+  fulfilment: { type: String, enum: ['new', 'contacted', 'done'], default: 'new' },
+  paidAt: { type: Date, default: null },
+  raw: { type: Object, default: () => ({}) },
+}, { timestamps: true });
+
 const models = {
   Review: model('Review', ReviewSchema),
   User: model('User', UserSchema),
@@ -118,6 +154,8 @@ const models = {
   Session: model('Session', SessionSchema),
   Settings: model('Settings', SettingsSchema),
   Audit: model('Audit', AuditSchema),
+  Product: model('Product', ProductSchema),
+  Order: model('Order', OrderSchema),
 };
 
 let memoryServer = null;
@@ -134,6 +172,16 @@ async function connect() {
   await mongoose.connect(uri, { dbName: cfg.mongo.dbName, serverSelectionTimeoutMS: 15000 });
   await models.Settings.updateOne({ _id: 'global' }, { $setOnInsert: {} }, { upsert: true });
   await seedStaff();
+  await seedCatalog();
+}
+
+// Sample catalogue entries are saved as drafts (inactive) so nothing shows publicly until an admin publishes them.
+async function seedCatalog() {
+  if (await models.Product.countDocuments()) return;
+  await models.Product.create([
+    { slug: 'foundations-of-palmistry', kind: 'course', title: 'Foundations of Palmistry (sample)', summary: 'Learn to read the major lines and mounts of the palm.', description: 'Sample course text. Edit this in Admin → Learning & services before publishing.', price: 4999, durationText: '6 weeks · online, one live class a week', outcomes: ['Identify the principal lines', 'Read the mounts and their meanings', 'Practise on sample palms'], active: false, sort: 1 },
+    { slug: 'detailed-palm-reading', kind: 'service', title: 'Detailed Palm Reading (sample)', summary: 'A longer reading with a written report.', description: 'Sample service text. Edit before publishing.', price: 1499, durationText: '45 minutes, video or audio', outcomes: ['Written report', 'Question-led discussion'], active: false, sort: 1 },
+  ]);
 }
 
 async function seedStaff() {
