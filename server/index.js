@@ -1,5 +1,6 @@
 const cfg = require('./config');
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
@@ -67,22 +68,42 @@ const server = app.listen(cfg.port, () => {
 // Prepare Next.js in background without blocking listen()
 let nextHandler = null;
 let nextErr = null;
+let isBuilding = false;
 
-try {
-  const nextApp = require('next')({ dev: !cfg.prod, dir: path.join(__dirname, '..') });
-  nextApp.prepare()
-    .then(() => {
-      nextHandler = nextApp.getRequestHandler();
-      console.log('[next] Next.js ready to serve requests');
-    })
-    .catch((err) => {
-      console.error('[next] Next.js prepare failed:', err.message || err);
-      nextErr = err;
-    });
-} catch (e) {
-  console.error('[next] Failed to initialize next():', e.message || e);
-  nextErr = e;
+const nextDir = path.join(__dirname, '..');
+const dotNext = path.join(nextDir, '.next');
+
+async function initNext() {
+  if (cfg.prod && !fs.existsSync(dotNext)) {
+    console.log('[next] No production build found in .next. Running automatic next build...');
+    isBuilding = true;
+    const { execSync } = require('child_process');
+    const nextCli = path.join(nextDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+    try {
+      if (fs.existsSync(nextCli)) {
+        execSync(`"${process.execPath}" "${nextCli}" build`, { cwd: nextDir, stdio: 'inherit', env: process.env });
+      } else {
+        execSync('npx next build', { cwd: nextDir, stdio: 'inherit', env: process.env });
+      }
+      console.log('[next] Build completed successfully.');
+    } catch (buildErr) {
+      console.error('[next] Automatic build failed:', buildErr.message);
+      isBuilding = false;
+      throw buildErr;
+    }
+    isBuilding = false;
+  }
+
+  const nextApp = require('next')({ dev: !cfg.prod, dir: nextDir });
+  await nextApp.prepare();
+  nextHandler = nextApp.getRequestHandler();
+  console.log('[next] Next.js ready to serve requests');
 }
+
+initNext().catch((err) => {
+  console.error('[next] Next.js initialization failed:', err.message || err);
+  nextErr = err;
+});
 
 app.all(/.*/, (req, res) => {
   if (nextHandler) {
@@ -91,7 +112,8 @@ app.all(/.*/, (req, res) => {
   if (nextErr) {
     return res.status(500).send(`Server Error starting frontend: ${nextErr.message || nextErr}`);
   }
-  res.status(503).send('<html><head><meta http-equiv="refresh" content="2"></head><body style="font-family:sans-serif;text-align:center;padding:50px"><h2>Starting Guruji application...</h2><p>Please wait a few seconds while the app initializes.</p></body></html>');
+  const msg = isBuilding ? 'Building production assets, please wait a moment...' : 'Please wait a few seconds while the app initializes.';
+  res.status(503).send(`<html><head><meta http-equiv="refresh" content="3"></head><body style="font-family:sans-serif;text-align:center;padding:50px"><h2>Starting Guruji application...</h2><p>${msg}</p></body></html>`);
 });
 
 // Connect to MongoDB asynchronously without blocking listen()
