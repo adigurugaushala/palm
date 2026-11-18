@@ -54,19 +54,53 @@ function buildApi() {
   return app;
 }
 
-async function start() {
-  await connect();
-  const app = buildApi();
-  const next = require('next')({ dev: !cfg.prod, dir: path.join(__dirname, '..') });
-  await next.prepare();
-  const handle = next.getRequestHandler();
-  app.all(/.*/, (req, res) => handle(req, res));
-  app.listen(cfg.port, () => {
-    console.log(`Guruji running on ${cfg.appBaseUrl}`);
-    console.log(`  payments: ${cfg.payu ? 'PayU ' + cfg.payu.mode : cfg.demoPayments ? 'DEMO (no money moves)' : 'OFF'}` +
-      ` · Google: ${cfg.googleClientId ? 'on' : 'off'} · dev login: ${cfg.devLogin ? 'on' : 'off'} · meet: ${cfg.meetProvider}`);
-  });
+const app = buildApi();
+
+// Immediate synchronous listen for Hostinger / Passenger / cPanel compatibility
+const server = app.listen(cfg.port, () => {
+  console.log(`Guruji running on ${cfg.appBaseUrl} (port ${cfg.port})`);
+  console.log(`  payments: ${cfg.payu ? 'PayU ' + cfg.payu.mode : cfg.demoPayments ? 'DEMO (no money moves)' : 'OFF'}` +
+    ` · Google: ${cfg.googleClientId ? 'on' : 'off'} · dev login: ${cfg.devLogin ? 'on' : 'off'}` +
+    ` · meet: ${cfg.meetProvider}`);
+});
+
+// Prepare Next.js in background without blocking listen()
+let nextHandler = null;
+let nextErr = null;
+
+try {
+  const nextApp = require('next')({ dev: !cfg.prod, dir: path.join(__dirname, '..') });
+  nextApp.prepare()
+    .then(() => {
+      nextHandler = nextApp.getRequestHandler();
+      console.log('[next] Next.js ready to serve requests');
+    })
+    .catch((err) => {
+      console.error('[next] Next.js prepare failed:', err.message || err);
+      nextErr = err;
+    });
+} catch (e) {
+  console.error('[next] Failed to initialize next():', e.message || e);
+  nextErr = e;
 }
 
-if (require.main === module) start().catch(e => { console.error(e); process.exit(1); });
-module.exports = { buildApi, start };
+app.all(/.*/, (req, res) => {
+  if (nextHandler) {
+    return nextHandler(req, res);
+  }
+  if (nextErr) {
+    return res.status(500).send(`Server Error starting frontend: ${nextErr.message || nextErr}`);
+  }
+  res.status(503).send('<html><head><meta http-equiv="refresh" content="2"></head><body style="font-family:sans-serif;text-align:center;padding:50px"><h2>Starting Guruji application...</h2><p>Please wait a few seconds while the app initializes.</p></body></html>');
+});
+
+// Connect to MongoDB asynchronously without blocking listen()
+connect()
+  .then(() => {
+    console.log('[db] MongoDB connected successfully');
+  })
+  .catch((err) => {
+    console.error('[db] MongoDB connection error:', err.message || err);
+  });
+
+module.exports = { app, server, connect, buildApi };

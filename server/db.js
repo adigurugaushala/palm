@@ -82,9 +82,13 @@ const SessionSchema = new Schema({
   expiresAt: { type: Date, required: true, index: { expires: 0 } },     // TTL auto-cleanup
 });
 
+// Consultation pack price (₹). Default is ₹1 for testing (original pack is ₹799).
+// Can also be overridden with PRICE env variable or from the Admin portal.
+const DEFAULT_PRICE = Number(process.env.PRICE || 1);
+
 const SettingsSchema = new Schema({
   _id: { type: String, default: 'global' },
-  price: { type: Number, default: 799 },
+  price: { type: Number, default: DEFAULT_PRICE },
   gstPercent: { type: Number, default: 18 },
   durationMin: { type: Number, default: 30 },
   daysAhead: { type: Number, default: 30 },
@@ -181,7 +185,12 @@ async function connect() {
   }
   mongoose.set('strictQuery', true);
   await mongoose.connect(uri, { dbName: cfg.mongo.dbName, serverSelectionTimeoutMS: 15000 });
-  await models.Settings.updateOne({ _id: 'global' }, { $setOnInsert: {} }, { upsert: true });
+  await models.Settings.updateOne({ _id: 'global' }, { $setOnInsert: { price: DEFAULT_PRICE } }, { upsert: true });
+  if (process.env.PRICE) {
+    await models.Settings.updateOne({ _id: 'global' }, { $set: { price: Number(process.env.PRICE) } });
+  } else if (DEFAULT_PRICE === 1) {
+    await models.Settings.updateOne({ _id: 'global', price: 799 }, { $set: { price: 1 } });
+  }
   await seedStaff();
   await seedCatalog();
 }

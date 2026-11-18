@@ -2,7 +2,28 @@ const fs = require('fs');
 const path = require('path');
 
 const envFile = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
+if (fs.existsSync(envFile)) {
+  if (typeof process.loadEnvFile === 'function') {
+    try { process.loadEnvFile(envFile); } catch {}
+  } else {
+    try {
+      const content = fs.readFileSync(envFile, 'utf8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          let val = trimmed.slice(eqIdx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (!process.env[key]) process.env[key] = val;
+        }
+      }
+    } catch {}
+  }
+}
 
 const prod = process.env.NODE_ENV === 'production';
 const on = v => v === '1' || v === 'true';
@@ -15,8 +36,8 @@ const payuReady = !!(payuKey && payuSalt);
 
 module.exports = {
   prod,
-  port: +process.env.PORT || 3000,
-  appBaseUrl: (process.env.APP_BASE_URL || process.env.BACKEND_URL || `http://localhost:${+process.env.PORT || 3000}`).replace(/\/$/, ''),
+  port: process.env.PORT || 3000,
+  appBaseUrl: (process.env.APP_BASE_URL || process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, ''),
   secureCookies: prod,
   sessionSecret: process.env.SESSION_SECRET || process.env.AUTH_SECRET || '',
   // Simulated sign-in shown on screen in development only.
