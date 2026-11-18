@@ -41,5 +41,8 @@
   "devDependencies": {
     "mongodb-memory-server": "^11.0.0",
     "puppeteer-core": "^25.18.0"
+  },
+  "overrides": {
+    "uuid": "^11.1.0"
   }
 }
