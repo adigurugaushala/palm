@@ -25,6 +25,7 @@ function buildApi() {
 
   // PayU posts urlencoded forms cross-origin, so its routes bypass the CSRF-header gate below.
   app.use('/api/payu', cookieParser(), loadUser, payu.router);
+  app.use('/api', cookieParser(), loadUser, payu.router);
 
   app.use('/api', express.json({ limit: '200kb' }), cookieParser());
   // CSRF defence: state-changing calls from the browser must carry a custom header,
